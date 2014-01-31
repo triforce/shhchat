@@ -4,7 +4,7 @@ SRC=src
 BIN=bin
 
 # Check for Linux environment
-ENV:=$(shell uname -s | cut -d _ -f1)
+# ENV:=$(shell uname -s | cut -d _ -f1)
 
 all:
 	$(CC) -o $(BIN)/server $(SRC)/server.c $(CFLAGS)
