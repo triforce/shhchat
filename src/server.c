@@ -1,6 +1,6 @@
 /*
 shhchat server
-version 0.1
+alpha
 */
 
 #include <stdio.h>
