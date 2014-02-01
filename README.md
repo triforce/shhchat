@@ -17,3 +17,6 @@ Release Features Schedule:
 
 * A secure encrypted message stream between client, server and other clients.
 * A simple key file will contain the encryption key used for messages.
+
+
+Currently looking for code contributors.
