@@ -15,6 +15,7 @@ alpha
 #include <signal.h>
 #include <arpa/inet.h>
 #include <stdint.h>
+#include <stdbool.h>
 #define default_port 9956 
 #define BUFFER_MAX 256
 
@@ -35,6 +36,12 @@ int y,count;
 int main (int argc, char *argv[]) {
     pthread_t thr1,thr2;
     unsigned short port = default_port;
+    FILE *fp;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    bool haveKey = false;
+
 
     if (argc < 2) {
         printf("Usage: ./client <server_ip> <optional_port>\n");
@@ -45,7 +52,14 @@ int main (int argc, char *argv[]) {
     }
 
     //TODO Read key from file
-    printf("Reading contents of config file");
+    printf("Reading contents of config file.\n");
+
+    // Try and open key file
+    fp = fopen("cfg/key", "r");
+    if (fp == NULL) {
+        printf("Failed to read key file.");
+        exit(EXIT_FAILURE);
+    }
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
@@ -112,7 +126,7 @@ void *chat_write (int sockfd) {
 	// Continuosly read from buffer
         fgets(buffer,BUFFER_MAX-1,stdin);
         if (strlen(buffer)-1>sizeof(buffer)) {
-            printf("Buffer full, please do not exceed %d characters.\n",sizeof(buffer));
+            printf("Buffer full, reduce size of message.\n");
             bzero(buffer,BUFFER_MAX);
             __fpurge(stdin);
         }
