@@ -3,7 +3,7 @@ shhchat
 
 SHHH! It's a secret!
 
-A Linux chat program using encryption. Focused on simplicity, privacy and speed.
+A Linux chat program using encryption. Focused on simplicity, privacy and speed. Uses a very simple xor algorithm.
 
 Current Status: Alpha
 
