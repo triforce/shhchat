@@ -66,19 +66,19 @@ int main (int argc, char *argv[]) {
     else
         portnum = default_port;
 
-    printf("Reading contents of config file.\n");
+    printDebug("Reading contents of config file.");
 
     // Try and open key file
     fp = fopen("cfg/key", "r");
     if (fp == NULL) {
-        printf("Failed to read key file.\n");
+        printDebug("Failed to read key file.");
         exit(EXIT_FAILURE);
     }
 
     // Read contents of key file
     while ((read = getline(&line, &len, fp)) != -1) {
         // printf("Key found %zu :\n", read);
-        printf("Key found.");
+        printDebug("Key found.");
         // printf("%s", line);
         haveKey = true;
         break;
@@ -86,7 +86,7 @@ int main (int argc, char *argv[]) {
     free(line);
 
     if (!haveKey) {
-        printf("Failed to read key file.\n");
+        printDebug("Failed to read key file.");
         exit(EXIT_FAILURE);
      }
 
@@ -259,7 +259,7 @@ cli_dis:
 // TODO all debug type messages logged using this
 void printDebug (char *string) {
     if (debugsOn)
-        printf(string);
+        printf("%s\n",string);
 }
 
 clients clearClientList (clients h) {
