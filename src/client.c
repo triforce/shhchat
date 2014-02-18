@@ -6,6 +6,7 @@ alpha
 #include <stdio.h>
 #include <stdio_ext.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -16,7 +17,7 @@ alpha
 #include <arpa/inet.h>
 #include <stdint.h>
 #define default_port 9956 
-#define BUFFER_MAX 256
+#define BUFFER_MAX 1024
 
 int sockfd;
 int n,x;
@@ -27,7 +28,9 @@ void *interrupt_Handler();
 void *chat_write(int);
 void *chat_read(int);
 void *zzz();
+void printDebug(char *string);
 void *xor_encrypt(char *key, char *string, int n);
+bool debugsOn = false;
 char plain[] = "";
 char key[] = "abcdefg";
 int y,count;
@@ -94,14 +97,14 @@ void *chat_read (int sockfd) {
                 if (n>0) {
 		    // Decrypt message
 		    y = strlen(buffer);
-		    printf("\nMessage from server pre xor - %s",buffer);
+		    //printf("\nMessage from server pre xor - %s",buffer);
 		    xor_encrypt(key, buffer, y);
-		    printf("\nMessage from server post xor - %s",buffer);
+		    //printf("\nMessage from server post xor - %s",buffer);
 		    if (strncmp(buffer,"shutdown",8)==0) {
 	                exit(0);
 		    }
 
-		    printf("\nReceived data from server - %s", buffer);
+		    printf("\n: %s", buffer);
                     bzero(buffer,BUFFER_MAX);
                 }
             }
@@ -118,11 +121,10 @@ void *chat_write (int sockfd) {
         }
 	// Encrypt message
         y = strlen(buffer);
-        printf("\nSending data to server while connected pre xor - %s", buffer);
-	y = strlen(buffer);
+        //printf("\nSending data to server while connected pre xor - %s", buffer);
         xor_encrypt(key, buffer, y);
-	printf("\nSending data to server while connected post xor - %s",buffer);
-        n=send(sockfd,buffer,strlen(buffer),0);
+	//printf("\nSending data to server while connected post xor - %s",buffer);
+        n=send(sockfd,buffer,y,0);
 
         if (strncmp(buffer,"quit",4)==0) {
             exit(0);
@@ -137,6 +139,11 @@ void *interrupt_Handler () {
 }
 void *zzz () {
     printf("\rType 'quit' to exit.\n");
+}
+
+void printDebug (char *string) {
+   if (debugsOn)
+	printf(string);
 }
 
 // Encryption routine

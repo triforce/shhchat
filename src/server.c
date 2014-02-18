@@ -16,7 +16,7 @@ alpha
 #include <signal.h>
 #include <syslog.h>
 #define BACKLOG 100
-#define BUFFER_MAX 256
+#define BUFFER_MAX 1024
 #define default_port 9956
 
 struct client {
@@ -222,7 +222,7 @@ cli_dis:
 		    n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
 		    printf("\nSending data from server post xor- %s", buffer);
-                    send(sfd,buffer,BUFFER_MAX,0);
+                    send(sfd,buffer,n,0);
 		}
             } while (a->next != NULL);
             displayConnected(h);
@@ -247,7 +247,7 @@ cli_dis:
 		n = strlen(msg);
 		xor_encrypt(key, msg, n);
 		printf("\nSending data to client contents of msg post xor - %s", msg);
-                send(sfd,msg,msglen,0);
+                send(sfd,msg,n,0);
 	     }
         } while(a->next != NULL);
         displayConnected(h);
