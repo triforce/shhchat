@@ -192,8 +192,8 @@ void *server(void * arguments) {
     } while(a->next != NULL);
 
     while(1) {
-        bzero(buffer,256);
-        y=recv(ts_fd,buffer,BUFFER_MAX,0);
+        bzero(buffer,BUFFER_MAX);
+        y=recv(ts_fd,buffer,sizeof(buffer),0);
         if (y==0)
             goto cli_dis;
 
@@ -201,7 +201,6 @@ void *server(void * arguments) {
 	buffer[y] = '\0';
 
 	n = strlen(buffer);
-	// TODO Some characters are lost from the end of the message received, not being cleared somewhere?
 	printf("\nData received into server pre xor - %s", buffer);
  	xor_encrypt(key, buffer, n);
 	printf("\nData received into server post xor -%s", buffer);

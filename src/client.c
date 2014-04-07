@@ -103,7 +103,7 @@ void *chat_read (int sockfd) {
     if (signal(SIGINT,(void *)interrupt_Handler)==0)
         if (signal(SIGTSTP, (void *)zzz)==0)
             while(1) {
-                n=recv(sockfd,buffer,BUFFER_MAX-1,0);
+                n=recv(sockfd,buffer,sizeof(buffer),0);
                 if (n==0) {
                     printf("\nLost connection to the server.\n\n");
                     exit(0);
@@ -126,8 +126,9 @@ void *chat_read (int sockfd) {
 
 void *chat_write (int sockfd) {
     while(1) {
-	// Continuosly read from buffer
-        fgets(buffer,BUFFER_MAX-1,stdin);
+	// Continuosly read from stdin
+	// TODO Sometimes chars from stdin are truncated
+        fgets(buffer,sizeof(buffer),stdin);
         if (strlen(buffer)-1>sizeof(buffer)) {
             printf("Buffer full, reduce size of message.\n");
             bzero(buffer,BUFFER_MAX);
