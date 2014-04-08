@@ -44,7 +44,7 @@ clients h;
 char buffer[BUFFER_MAX];
 bool debugsOn = true;
 char plain[] = "Hello";
-char key[] = "abcdefg";
+char key[] = "123456";
 
 int main (int argc, char *argv[]) {
     int socket_fd,new_fd;
@@ -79,8 +79,9 @@ int main (int argc, char *argv[]) {
     while ((read = getline(&line, &len, fp)) != -1) {
         // printf("Key found %zu :\n", read);
         printDebug("Key found.");
-        // printf("%s", line);
-        haveKey = true;
+        strncpy(key, line, sizeof(line));
+        printf("%s", key);
+	haveKey = true;
         break;
     }
     free(line);

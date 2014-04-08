@@ -33,7 +33,7 @@ void printDebug(char *string);
 void *xor_encrypt(char *key, char *string, int n);
 bool debugsOn = false;
 char plain[] = "";
-char key[] = "abcdefg";
+char key[] = "123456";
 int y,count;
 
 int main (int argc, char *argv[]) {
@@ -63,6 +63,23 @@ int main (int argc, char *argv[]) {
         printf("Failed to read key file.");
         exit(EXIT_FAILURE);
     }
+
+
+    // Read contents of key file
+    while ((read = getline(&line, &len, fp)) != -1) {
+        // printf("Key found %zu :\n", read);
+        printDebug("Key found.");
+        strncpy(key, line, sizeof(line));
+	printf("%s", key);
+        haveKey = true;
+        break;
+    }
+    free(line);
+
+    if (!haveKey) {
+        printDebug("Failed to read key file.");
+        exit(EXIT_FAILURE);
+     }
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd == -1)
@@ -127,8 +144,9 @@ void *chat_read (int sockfd) {
 void *chat_write (int sockfd) {
     while(1) {
 	// Continuosly read from stdin
-	// TODO Sometimes chars from stdin are truncated
-        fgets(buffer,sizeof(buffer),stdin);
+        bzero(buffer,BUFFER_MAX);
+        __fpurge(stdin);
+	fgets(buffer,sizeof(buffer),stdin);
         if (strlen(buffer)-1>sizeof(buffer)) {
             printf("Buffer full, reduce size of message.\n");
             bzero(buffer,BUFFER_MAX);
