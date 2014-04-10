@@ -1,16 +1,19 @@
 CC=gcc
 CFLAGS=-lpthread --std=gnu99
 SRC=src
-BIN=bin
+BIN=build
+CONF=conf
 
 # Check for Linux environment
 # ENV:=$(shell uname -s | cut -d _ -f1)
 
 all:
-	$(CC) -o $(BIN)/server $(SRC)/server.c $(CFLAGS)
-	$(CC) -o $(BIN)/client $(SRC)/client.c $(CFLAGS)
+	rm -f $(BIN)/shhchatd $(BIN)/shhclient
+	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS)
+	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS)
+	cp $(CONF)/* -t $(BIN)/cfg
 	@echo Finished shhchat build
 
 clean:
-	rm -f $(BIN)/server $(BIN)/client
+	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	@echo Finished clean

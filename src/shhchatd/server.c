@@ -15,6 +15,8 @@ alpha
 #include <unistd.h>
 #include <signal.h>
 #include <syslog.h>
+#include <signal.h>
+#include <sys/stat.h>
 #define BACKLOG 100
 #define BUFFER_MAX 1024
 #define default_port 9956
@@ -38,6 +40,7 @@ void *server(void * arg);
 void showConnected();
 void xor_encrypt(char *key, char *string, int n);
 void printDebug(char *string);
+bool checkUser (char *string);
 char username[10];
 int sf2,n,count;
 clients h;
@@ -45,6 +48,41 @@ char buffer[BUFFER_MAX];
 bool debugsOn = true;
 char plain[] = "Hello";
 char key[] = "123456";
+
+static void start_daemon()
+{
+    pid_t pid;
+    pid = fork();
+
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    if (setsid() < 0)
+        exit(EXIT_FAILURE);
+
+    signal(SIGCHLD, SIG_IGN);
+    signal(SIGHUP, SIG_IGN);
+    pid = fork();
+
+    if (pid < 0)
+        exit(EXIT_FAILURE);
+
+    if (pid > 0)
+        exit(EXIT_SUCCESS);
+
+    umask(0);
+
+    int x;
+    for (x = sysconf(_SC_OPEN_MAX); x>0; x--)
+    {
+        close (x);
+    }
+   openlog("shhchatd", 0, LOG_USER);
+   syslog(LOG_INFO, "%s", "Server started OK.");
+}
 
 int main (int argc, char *argv[]) {
     int socket_fd,new_fd;
@@ -60,6 +98,11 @@ int main (int argc, char *argv[]) {
     size_t len = 0;
     ssize_t read;
     bool haveKey = false;
+
+start_daemon();
+
+    while (1)
+    {
 
     if (argc == 2)
         portnum = atoi(argv[1]);
@@ -151,10 +194,10 @@ int main (int argc, char *argv[]) {
                     a = a->next;
                     sf2 = a->port;
                     if(sf2!=new_fd) {
-			printf("\nSending who has currently connected data to all clients pre xor %s", buffer);
+			//printf("\nSending who has currently connected data to all clients pre xor %s", buffer);
 			 n = sizeof(buffer);
 	                xor_encrypt(key, buffer, n);
-			printf("\nSending who has currently connected data to all clients post xor %s", buffer);
+			//printf("\nSending who has currently connected data to all clients post xor %s", buffer);
                         send(sf2,buffer ,sizeof(buffer),0);
 			}
                 } while (a->next != NULL);
@@ -167,6 +210,7 @@ int main (int argc, char *argv[]) {
             }
     removeAllClients(h);
     close(socket_fd);
+    }
 }
 
 // Server side handling for each connected client 
@@ -180,15 +224,20 @@ void *server(void * arguments) {
     ts_fd = args->port;
     strcpy(uname,args->username);
     addr a;
-
     a =h ;
+
+    if (!checkUser(uname)) {
+	printf("User does not exist in db\n");
+	goto cli_dis;
+    }
+
     do {
         a = a->next;
         sprintf(ubuf," %s is online.\n",a->username);
-		printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
-		n = strlen(ubuf);
+	//printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
+	n = strlen(ubuf);
         xor_encrypt(key, ubuf, n);
-		printf("\nSending data to client contents of ubuf post xor %s", ubuf);
+	//printf("\nSending data to client contents of ubuf post xor %s", ubuf);
         send(ts_fd,ubuf,strlen(ubuf),0);
     } while(a->next != NULL);
 
@@ -202,9 +251,9 @@ void *server(void * arguments) {
 	buffer[y] = '\0';
 
 	n = strlen(buffer);
-	printf("\nData received into server pre xor - %s", buffer);
+	//printf("\nData received into server pre xor - %s", buffer);
  	xor_encrypt(key, buffer, n);
-	printf("\nData received into server post xor -%s", buffer);
+	//printf("\nData received into server post xor -%s", buffer);
 
         if (strncmp(buffer, "quit", 4) == 0) {
 cli_dis:
@@ -218,10 +267,10 @@ cli_dis:
                     removeClient(sfd, h);
                 if(sfd != ts_fd) {
 	 	    // Encrypt message
-		    printf("\nSending data from server pre xor- %s", buffer);
+		    //printf("\nSending data from server pre xor- %s", buffer);
 		    n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
-		    printf("\nSending data from server post xor- %s", buffer);
+		    //printf("\nSending data from server post xor- %s", buffer);
                     send(sfd,buffer,n,0);
 		}
             } while (a->next != NULL);
@@ -243,10 +292,10 @@ cli_dis:
             sfd = a->port;
             if(sfd != ts_fd) {
 		// Handles sending client messages to all connected clients
-		printf("\nSending data to client contents of msg pre xor - %s", msg);
+		//printf("\nSending data to client contents of msg pre xor - %s", msg);
 		n = strlen(msg);
 		xor_encrypt(key, msg, n);
-		printf("\nSending data to client contents of msg post xor - %s", msg);
+		//printf("\nSending data to client contents of msg post xor - %s", msg);
                 send(sfd,msg,n,0);
 	     }
         } while(a->next != NULL);
@@ -358,4 +407,29 @@ void xor_encrypt (char *key, char *string, int n) {
     for(i = 0 ; i < n ; i++) {
         string[i]=string[i]^key[i%keyLength];
     }
+}
+
+bool checkUser (char *user) {
+    FILE *fp;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    char *tmp = NULL;
+
+    printf("Checking user %s is in db\n",user);
+    fp = fopen("cfg/users", "r");
+    if (fp == NULL) {
+       printDebug("Failed to read users file.");
+    }
+
+    // Read contents of user file
+    while ((read = getline(&line, &len, fp)) != -1) {
+       line[strlen(line) - 1] = '\0';
+       printf("Found %s in db\n", line);
+       if (strncmp(line, user, sizeof(user)) == 0) {
+           printf("Found user %s.", user);
+           return true;
+       }
+    }
+return false;
 }
