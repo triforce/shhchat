@@ -16,7 +16,6 @@ alpha
 #include <signal.h>
 #include <arpa/inet.h>
 #include <stdint.h>
-#include <stdbool.h>
 #define default_port 9956 
 #define BUFFER_MAX 1024
 
