@@ -30,7 +30,7 @@ typedef struct client *ptrtoclient;
 typedef ptrtoclient clients;
 typedef ptrtoclient addr;
 void disconnectAllClients();
-clients clearClientList(clients h);
+clients ClientList(clients h);
 void removeClient(int port, clients h);
 void addClient(int port,char*,clients h,addr a);
 void removeAllClients(clients h);
@@ -148,7 +148,7 @@ start_daemon();
     syslog(LOG_INFO, "%s", "Server started successfully");
 
     // Clear out list of clients
-    h = clearClientList(NULL);
+    h = ClientList(NULL);
 
     // Open socket and listen for connections 
     server_addr.sin_family=AF_INET;
@@ -311,7 +311,7 @@ void printDebug (char *string) {
         printf("%s\n",string);
 }
 
-clients clearClientList (clients h) {
+clients ClientList (clients h) {
     if(h != NULL)
         removeAllClients(h);
     h = malloc(sizeof(struct client));
