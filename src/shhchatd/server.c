@@ -99,7 +99,11 @@ int main (int argc, char *argv[]) {
     ssize_t read;
     bool haveKey = false;
 
-start_daemon();
+    if (debugsOn)
+	printDebug("Debugs on\n");	
+    	// don't start daemon
+    else
+	start_daemon();
 
     while (1)
     {
@@ -123,7 +127,8 @@ start_daemon();
         // printf("Key found %zu :\n", read);
         printDebug("Key found.");
         strncpy(key, line, sizeof(line));
-        printf("%s", key);
+	if (debugsOn)
+            printf("%s", key);
 	haveKey = true;
         break;
     }
@@ -134,16 +139,17 @@ start_daemon();
         exit(EXIT_FAILURE);
      }
 
-    printf("Testing encryption key on string: '%s'\n", plain);
-    n = strlen(plain);
-    xor_encrypt(key,plain , n);
-    printf("Encrypting...%s\n", plain);
+    if (debugsOn) {    
+        printf("Testing encryption key on string: '%s'\n", plain);
+        n = strlen(plain);
+        xor_encrypt(key,plain , n);
+        printf("Encrypting...%s\n", plain);
 
-    n = strlen(plain);
-    xor_encrypt(key,plain , n);
-    printf("Decrypted '%s'\nIf the two do no match then your encryption hasn't worked.\n", plain);
+        n = strlen(plain);
+        xor_encrypt(key,plain , n);
+        printf("Decrypted '%s'\nIf the two do no match then your encryption hasn't worked.\n", plain);
+    }
 
-    // TODO As the server should act as a daemon it will write to syslog for all future logging
     openlog("shhchatd", 0, LOG_USER);
     syslog(LOG_INFO, "%s", "Server started successfully");
 
@@ -163,19 +169,18 @@ start_daemon();
     } else
         syslog(LOG_INFO, "%s", "Socket created.");
     if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes,sizeof(int)) == -1) {
-        printf("Socket error.\n");
+        syslog(LOG_INFO, "%s", "Socket error.");
         exit(1);
     }
 
     if (bind(socket_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr))==-1) {
-        printf("Socket bind failed.\n");
+        syslog(LOG_INFO, "%s", "Failed to bind.");
         exit(1);
     }
     else
-        printf("Port binded successfully.\n\n");
+        syslog(LOG_INFO, "%s", "Port binded.");
 
     listen(socket_fd, BACKLOG);
-    printf("Now accepting client connections.\n");
     if (signal(SIGINT,(void *)closeServer)==0)
         if (signal(SIGTSTP, showConnected)==0)
             while(1) {
@@ -201,7 +206,8 @@ start_daemon();
                         send(sf2,buffer ,sizeof(buffer),0);
 			}
                 } while (a->next != NULL);
-                printf("Connection made from %s & %d\n\n",inet_ntoa(client_addr.sin_addr),new_fd);
+		if (debugsOn)
+                    printf("Connection made from %s & %d\n\n",inet_ntoa(client_addr.sin_addr),new_fd);
                 struct client args;
                 args.port=new_fd;
                 strcpy(args.username,username);
@@ -227,7 +233,7 @@ void *server(void * arguments) {
     a =h ;
 
     if (!checkUser(uname)) {
-	printf("User does not exist in db\n");
+        syslog(LOG_INFO, "%s", "User does not exist in db.");
 	goto cli_dis;
     }
 
@@ -279,7 +285,8 @@ cli_dis:
             free(msg);
             break;
         }
-        printf("\nData in buffer after disconnect check: %s %s\n",uname,buffer);
+	if (debugsOn)
+            printf("\nData in buffer after disconnect check: %s %s\n",uname,buffer);
         strcpy(msg,uname);
         x=strlen(msg);
         strp = msg;
@@ -305,7 +312,6 @@ cli_dis:
     return 0;
 }
 
-// TODO all debug type messages logged using this
 void printDebug (char *string) {
     if (debugsOn)
         printf("%s\n",string);
