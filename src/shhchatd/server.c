@@ -200,14 +200,14 @@ int main (int argc, char *argv[]) {
                     sf2 = a->port;
                     if(sf2!=new_fd) {
 			//printf("\nSending who has currently connected data to all clients pre xor %s", buffer);
-			 n = sizeof(buffer);
+			n = sizeof(buffer);
 	                xor_encrypt(key, buffer, n);
 			//printf("\nSending who has currently connected data to all clients post xor %s", buffer);
                         send(sf2,buffer ,sizeof(buffer),0);
 			}
                 } while (a->next != NULL);
 		if (debugsOn)
-                    printf("Connection made from %s & %d\n\n",inet_ntoa(client_addr.sin_addr),new_fd);
+                    printf("Connection made from %s\n\n",inet_ntoa(client_addr.sin_addr));
                 struct client args;
                 args.port=new_fd;
                 strcpy(args.username,username);
@@ -222,7 +222,7 @@ int main (int argc, char *argv[]) {
 // Server side handling for each connected client 
 void *server(void * arguments) {
     struct client *args=arguments;
-    char buffer[BUFFER_MAX],ubuf[50],uname[10];
+    char buffer[BUFFER_MAX],ubuf[BUFFER_MAX],uname[10];
     char *strp;
     char *msg = (char *) malloc(BUFFER_MAX);
     int ts_fd,x,y;
@@ -239,12 +239,13 @@ void *server(void * arguments) {
 
     do {
         a = a->next;
-        sprintf(ubuf," %s is online.\n",a->username);
+	bzero(ubuf,BUFFER_MAX);
+        sprintf(ubuf,"%s is online.",a->username);
 	//printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
 	n = strlen(ubuf);
         xor_encrypt(key, ubuf, n);
 	//printf("\nSending data to client contents of ubuf post xor %s", ubuf);
-        send(ts_fd,ubuf,strlen(ubuf),0);
+        send(ts_fd,ubuf,n,0);
     } while(a->next != NULL);
 
     while(1) {
@@ -263,8 +264,8 @@ void *server(void * arguments) {
 
         if (strncmp(buffer, "quit", 4) == 0) {
 cli_dis:
-            printf("%d ->%s disconnected\n",ts_fd,uname);
-            sprintf(buffer,"%s has disconnected\n",uname);
+            printf("%d ->%s disconnected",ts_fd,uname);
+            sprintf(buffer,"%s has disconnected",uname);
             addr a = h ;
             do {
                 a = a->next;
@@ -291,7 +292,7 @@ cli_dis:
         x=strlen(msg);
         strp = msg;
         strp+= x;
-        strcat(strp,buffer);
+        strncat(strp,buffer,sizeof(buffer));
         msglen=strlen(msg);
         addr a = h ;
         do {
@@ -302,7 +303,7 @@ cli_dis:
 		//printf("\nSending data to client contents of msg pre xor - %s", msg);
 		n = strlen(msg);
 		xor_encrypt(key, msg, n);
-		//printf("\nSending data to client contents of msg post xor - %s", msg);
+		printf("\nSending data to client contents of msg post xor - %s size is %d", msg,n);
                 send(sfd,msg,n,0);
 	     }
         } while(a->next != NULL);

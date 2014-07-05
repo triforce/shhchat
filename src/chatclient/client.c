@@ -119,9 +119,10 @@ void *chat_read (int sockfd) {
     if (signal(SIGINT,(void *)interrupt_Handler)==0)
         if (signal(SIGTSTP, (void *)zzz)==0)
             while(1) {
+                bzero(buffer,BUFFER_MAX);
                 n=recv(sockfd,buffer,sizeof(buffer),0);
                 if (n==0) {
-                    printf("\nLost connection to the server.\n\n");
+                    printf("Lost connection to the server.\n\n");
                     exit(0);
                 }
                 if (n>0) {
@@ -129,13 +130,12 @@ void *chat_read (int sockfd) {
 		    y = strlen(buffer);
 		    //printf("\nMessage from server pre xor - %s",buffer);
 		    xor_encrypt(key, buffer, y);
-		    //printf("\nMessage from server post xor - %s",buffer);
+		    //printf("\nMessage from server post xor - %s size is %d",buffer,y);
 		    if (strncmp(buffer,"shutdown",8)==0) {
 	                exit(0);
 		    }
 
-		    printf("\n: %s", buffer);
-                    bzero(buffer,BUFFER_MAX);
+		    printf(": %s \n", buffer);
                 }
             }
 }
