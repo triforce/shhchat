@@ -100,7 +100,7 @@ int main (int argc, char *argv[]) {
     bool haveKey = false;
 
     if (debugsOn)
-	printDebug("Debugs on\n");	
+	printDebug("Debugs on, not starting as a daemon.");	
     	// don't start daemon
     else
 	start_daemon();
@@ -160,7 +160,9 @@ int main (int argc, char *argv[]) {
     server_addr.sin_family=AF_INET;
     server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     server_addr.sin_port=htons(portnum);
-    printf("IP Address: %s\n",inet_ntoa(server_addr.sin_addr));
+    
+    if (debugsOn)
+        printf("IP Address: %s\n",inet_ntoa(server_addr.sin_addr));
 
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (socket_fd == -1) {
@@ -190,7 +192,6 @@ int main (int argc, char *argv[]) {
                 bzero(username,10);
                 if (recv(new_fd,username,sizeof(username),0)>0);
                 username[strlen(username)-1]=':';
-                printf("\t%d->%s connected \n",new_fd,username);
                 sprintf(buffer,"%s is currently connected\n",username);
                 addClient(new_fd,username, h, a);
                 a = a->next;
@@ -199,10 +200,10 @@ int main (int argc, char *argv[]) {
                     a = a->next;
                     sf2 = a->port;
                     if(sf2!=new_fd) {
-			//printf("\nSending who has currently connected data to all clients pre xor %s", buffer);
+			// printf("\nSending who has currently connected data to all clients pre xor %s", buffer);
 			n = sizeof(buffer);
 	                xor_encrypt(key, buffer, n);
-			//printf("\nSending who has currently connected data to all clients post xor %s", buffer);
+			// printf("\nSending who has currently connected data to all clients post xor %s", buffer);
                         send(sf2,buffer ,sizeof(buffer),0);
 			}
                 } while (a->next != NULL);
@@ -210,7 +211,7 @@ int main (int argc, char *argv[]) {
                     printf("Connection made from %s\n\n",inet_ntoa(client_addr.sin_addr));
                 struct client args;
                 args.port=new_fd;
-                strcpy(args.username,username);
+                strncpy(args.username,username,sizeof(username));
                 pthread_create(&thr,NULL,server,(void*)&args);
                 pthread_detach(thr);
             }
@@ -228,7 +229,7 @@ void *server(void * arguments) {
     int ts_fd,x,y;
     int sfd,msglen;
     ts_fd = args->port;
-    strcpy(uname,args->username);
+    strncpy(uname,args->username,sizeof(args->username));
     addr a;
     a =h ;
 
@@ -241,10 +242,10 @@ void *server(void * arguments) {
         a = a->next;
 	bzero(ubuf,BUFFER_MAX);
         sprintf(ubuf,"%s is online.",a->username);
-	//printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
+	// printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
 	n = strlen(ubuf);
         xor_encrypt(key, ubuf, n);
-	//printf("\nSending data to client contents of ubuf post xor %s", ubuf);
+	// printf("\nSending data to client contents of ubuf post xor %s", ubuf);
         send(ts_fd,ubuf,n,0);
     } while(a->next != NULL);
 
@@ -258,13 +259,14 @@ void *server(void * arguments) {
 	buffer[y] = '\0';
 
 	n = strlen(buffer);
-	//printf("\nData received into server pre xor - %s", buffer);
+	// printf("\nData received into server pre xor - %s", buffer);
  	xor_encrypt(key, buffer, n);
-	//printf("\nData received into server post xor -%s", buffer);
+	// printf("\nData received into server post xor -%s", buffer);
 
         if (strncmp(buffer, "quit", 4) == 0) {
 cli_dis:
-            printf("%d ->%s disconnected",ts_fd,uname);
+            if (debugsOn)
+	        printf("%d ->%s disconnected\n",ts_fd,uname);
             sprintf(buffer,"%s has disconnected",uname);
             addr a = h ;
             do {
@@ -274,10 +276,10 @@ cli_dis:
                     removeClient(sfd, h);
                 if(sfd != ts_fd) {
 	 	    // Encrypt message
-		    //printf("\nSending data from server pre xor- %s", buffer);
+		    // printf("\nSending data from server pre xor- %s", buffer);
 		    n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
-		    //printf("\nSending data from server post xor- %s", buffer);
+		    // printf("\nSending data from server post xor- %s", buffer);
                     send(sfd,buffer,n,0);
 		}
             } while (a->next != NULL);
@@ -288,7 +290,7 @@ cli_dis:
         }
 	if (debugsOn)
             printf("\nData in buffer after disconnect check: %s %s\n",uname,buffer);
-        strcpy(msg,uname);
+        strncpy(msg,uname,sizeof(uname));
         x=strlen(msg);
         strp = msg;
         strp+= x;
@@ -300,10 +302,10 @@ cli_dis:
             sfd = a->port;
             if(sfd != ts_fd) {
 		// Handles sending client messages to all connected clients
-		//printf("\nSending data to client contents of msg pre xor - %s", msg);
+		// printf("\nSending data to client contents of msg pre xor - %s", msg);
 		n = strlen(msg);
 		xor_encrypt(key, msg, n);
-		printf("\nSending data to client contents of msg post xor - %s size is %d", msg,n);
+		// printf("\nSending data to client contents of msg post xor - %s size is %d", msg,n);
                 send(sfd,msg,n,0);
 	     }
         } while(a->next != NULL);
@@ -323,7 +325,7 @@ clients ClientList (clients h) {
         removeAllClients(h);
     h = malloc(sizeof(struct client));
     if(h == NULL)
-        printf("Out of memory.");
+        syslog(LOG_INFO, "%s", "Out of memory.");
     h->next = NULL;
     return h;
 }
@@ -343,9 +345,9 @@ void addClient (int port,char *username, clients h, addr a) {
     addr TmpCell;
     TmpCell = malloc(sizeof(struct client));
     if (TmpCell == NULL)
-        printf("Cannot accept anymore connections.");
+        syslog(LOG_INFO, "%s", "Max connections reached.");
     TmpCell->port = port;
-    strcpy(TmpCell->username,username);
+    strncpy(TmpCell->username,username,sizeof(username));
     TmpCell->next = a->next;
     a->next = TmpCell;
 }
@@ -353,7 +355,7 @@ void addClient (int port,char *username, clients h, addr a) {
 void displayConnected (const clients h) {
     addr a =h ;
     if (h->next == NULL)
-        printf("No clients currently connected.\n");
+        printDebug("No clients currently connected.");
     else {
         do {
             a = a->next;
@@ -376,7 +378,7 @@ void removeClient (int port, clients h) {
 }
 
 void *closeServer() {
-    printf("\nServer shutting down.\n");
+    syslog(LOG_INFO, "%s", "Server shutting down.");
     disconnectAllClients();
     exit(0);
 }
@@ -386,7 +388,7 @@ void disconnectAllClients () {
     addr a = h ;
     int i=0;
     if( h->next == NULL ) {
-        printf("Closing as no clients connected.\n\n");
+        syslog(LOG_INFO, "%s", "Closing as no clients connected.");
         exit(0);
     } else {
         do {
@@ -403,7 +405,7 @@ void disconnectAllClients () {
 }
 
 void showConnected () {
-    printf("\rConnected clients:\n\n");
+    printDebug("\rConnected clients:\n");
     displayConnected(h);
 }
 
@@ -422,8 +424,13 @@ bool checkUser (char *user) {
     size_t len = 0;
     ssize_t read;
     char *tmp = NULL;
+    char *tempUser = NULL;
 
-    printf("Checking user %s is in db\n",user);
+    tempUser = user;
+
+    tempUser[strlen(tempUser) - 1] = '\0';
+
+    printf("Checking user %s is in db\n",tempUser);
     fp = fopen("cfg/users", "r");
     if (fp == NULL) {
        printDebug("Failed to read users file.");
@@ -433,8 +440,8 @@ bool checkUser (char *user) {
     while ((read = getline(&line, &len, fp)) != -1) {
        line[strlen(line) - 1] = '\0';
        printf("Found %s in db\n", line);
-       if (strncmp(line, user, sizeof(user)) == 0) {
-           printf("Found user %s.", user);
+       if (strncmp(line, tempUser, sizeof(tempUser)) == 0) {
+           printf("Found user %s.", tempUser);
            return true;
        }
     }

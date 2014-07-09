@@ -29,11 +29,13 @@ void *chat_write(int);
 void *chat_read(int);
 void *zzz();
 void printDebug(char *string);
+void writeLog(FILE *fp, char *str);
 void *xor_encrypt(char *key, char *string, int n);
 bool debugsOn = false;
 char plain[] = "";
 char key[] = "123456";
 int y,count;
+FILE *fp_l;
 
 int main (int argc, char *argv[]) {
     pthread_t thr1,thr2;
@@ -53,13 +55,20 @@ int main (int argc, char *argv[]) {
         port = atoi(argv[2]);
     }
 
-    //TODO Read key from file
-    printf("Reading contents of config file.\n");
+    // Open log file
+    fp_l = fopen("shh_log", "a");
+    if (fp_l == NULL)
+    {
+        printf("Couldn't open log file\n");
+        return 1;
+    }
+
+    printDebug("Reading contents of config file\n");
 
     // Try and open key file
     fp = fopen("cfg/key", "r");
     if (fp == NULL) {
-        printf("Failed to read key file.");
+        printDebug("Failed to read key file\n");
         exit(EXIT_FAILURE);
     }
 
@@ -67,16 +76,17 @@ int main (int argc, char *argv[]) {
     // Read contents of key file
     while ((read = getline(&line, &len, fp)) != -1) {
         // printf("Key found %zu :\n", read);
-        printDebug("Key found.");
+        printDebug("Key found\n");
         strncpy(key, line, sizeof(line));
-	printf("%s", key);
+	// Don't print key out!
+	// printf("%s", key);
         haveKey = true;
         break;
     }
     free(line);
 
     if (!haveKey) {
-        printDebug("Failed to read key file.");
+        printDebug("Failed to read key file\n");
         exit(EXIT_FAILURE);
      }
 
@@ -128,9 +138,9 @@ void *chat_read (int sockfd) {
                 if (n>0) {
 		    // Decrypt message
 		    y = strlen(buffer);
-		    //printf("\nMessage from server pre xor - %s",buffer);
+		    // printf("\nMessage from server pre xor - %s",buffer);
 		    xor_encrypt(key, buffer, y);
-		    //printf("\nMessage from server post xor - %s size is %d",buffer,y);
+		    // printf("\nMessage from server post xor - %s size is %d",buffer,y);
 		    if (strncmp(buffer,"shutdown",8)==0) {
 	                exit(0);
 		    }
@@ -153,9 +163,9 @@ void *chat_write (int sockfd) {
         }
 	// Encrypt message
         y = strlen(buffer);
-        //printf("\nSending data to server while connected pre xor - %s", buffer);
+        // printf("\nSending data to server while connected pre xor - %s", buffer);
         xor_encrypt(key, buffer, y);
-	//printf("\nSending data to server while connected post xor - %s",buffer);
+	// printf("\nSending data to server while connected post xor - %s",buffer);
         n=send(sockfd,buffer,y,0);
 
         if (strncmp(buffer,"quit",4)==0) {
@@ -174,8 +184,16 @@ void *zzz () {
 }
 
 void printDebug (char *string) {
+// If debugs not on, write to log file
    if (debugsOn)
 	printf(string);
+   else
+	writeLog(fp_l,string);
+}
+
+void writeLog(FILE *fp, char *str)
+{
+    fprintf(fp, "%s", str);
 }
 
 // Encryption routine
