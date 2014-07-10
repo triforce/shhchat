@@ -19,6 +19,10 @@ alpha
 #define default_port 9956 
 #define BUFFER_MAX 1024
 
+// Colours
+#define RED  "\033[22;31m"
+#define RESET_COLOR "\e[m"
+
 int sockfd;
 int n,x;
 struct sockaddr_in serv_addr;
@@ -144,7 +148,6 @@ void *chat_read (int sockfd) {
 		    if (strncmp(buffer,"shutdown",8)==0) {
 	                exit(0);
 		    }
-
 		    printf(": %s \n", buffer);
                 }
             }
@@ -191,8 +194,7 @@ void printDebug (char *string) {
 	writeLog(fp_l,string);
 }
 
-void writeLog(FILE *fp, char *str)
-{
+void writeLog(FILE *fp, char *str) {
     fprintf(fp, "%s", str);
 }
 

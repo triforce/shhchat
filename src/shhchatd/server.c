@@ -17,9 +17,20 @@ alpha
 #include <syslog.h>
 #include <signal.h>
 #include <sys/stat.h>
+
 #define BACKLOG 100
 #define BUFFER_MAX 1024
 #define default_port 9956
+
+// Colours
+#define RED  "\033[22;31m"
+#define RESET_COLOR "\e[m"
+
+#ifdef DEBUG
+#define debug 1
+#else
+#define debug 0 
+#endif
 
 struct client {
    int port;
@@ -45,7 +56,7 @@ char username[10];
 int sf2,n,count;
 clients h;
 char buffer[BUFFER_MAX];
-bool debugsOn = true;
+bool debugsOn = false;
 char plain[] = "Hello";
 char key[] = "123456";
 
@@ -98,6 +109,9 @@ int main (int argc, char *argv[]) {
     size_t len = 0;
     ssize_t read;
     bool haveKey = false;
+
+    if (debug == 1)
+	debugsOn = true;
 
     if (debugsOn)
 	printDebug("Debugs on, not starting as a daemon.");	
@@ -238,9 +252,14 @@ void *server(void * arguments) {
 	goto cli_dis;
     }
 
+    // Add colon back in, need to check it doesn't go over allocated length
+    uname[strlen(uname)]=':';
+    uname[strlen(uname)]=' ';
+
     do {
         a = a->next;
 	bzero(ubuf,BUFFER_MAX);
+	printf("%s",a->username);
         sprintf(ubuf,"%s is online.",a->username);
 	// printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
 	n = strlen(ubuf);
@@ -290,7 +309,7 @@ cli_dis:
         }
 	if (debugsOn)
             printf("\nData in buffer after disconnect check: %s %s\n",uname,buffer);
-        strncpy(msg,uname,sizeof(uname));
+	strncpy(msg,uname,sizeof(uname));
         x=strlen(msg);
         strp = msg;
         strp+= x;
@@ -327,6 +346,7 @@ clients ClientList (clients h) {
     if(h == NULL)
         syslog(LOG_INFO, "%s", "Out of memory.");
     h->next = NULL;
+    
     return h;
 }
 
