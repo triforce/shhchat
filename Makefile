@@ -17,3 +17,11 @@ all:
 clean:
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	@echo Finished clean
+
+
+debug:
+	rm -f $(BIN)/shhchatd $(BIN)/shhclient
+	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DDEBUG
+	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DDEBUG
+	cp $(CONF)/* -t $(BIN)/cfg
+	@echo Finished shhchat debug build
