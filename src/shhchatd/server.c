@@ -259,7 +259,8 @@ void *server(void * arguments) {
     do {
         a = a->next;
 	bzero(ubuf,BUFFER_MAX);
-	printf("%s",a->username);
+	// TODO add as debug
+	// printf("%s",a->username);
         sprintf(ubuf,"%s is online.",a->username);
 	// printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
 	n = strlen(ubuf);
