@@ -138,7 +138,6 @@ int main (int argc, char *argv[]) {
 
     // Read contents of key file
     while ((read = getline(&line, &len, fp)) != -1) {
-        // printf("Key found %zu :\n", read);
         printDebug("Key found.");
         strncpy(key, line, sizeof(line));
 	if (debugsOn)
@@ -202,23 +201,22 @@ int main (int argc, char *argv[]) {
             while(1) {
                 cli_size=sizeof(struct sockaddr_in);
                 new_fd = accept(socket_fd, (struct sockaddr *)&client_addr,&cli_size);
-                a =h ;
+                a = h;
                 bzero(username,10);
+		bzero(buffer,BUFFER_MAX);
                 if (recv(new_fd,username,sizeof(username),0)>0);
                 username[strlen(username)-1]=':';
-                sprintf(buffer,"%s is currently connected\n",username);
+                sprintf(buffer,"%s connected",username);
                 addClient(new_fd,username, h, a);
                 a = a->next;
-                a = h ;
+                a = h;
                 do {
                     a = a->next;
                     sf2 = a->port;
                     if(sf2!=new_fd) {
-			// printf("\nSending who has currently connected data to all clients pre xor %s", buffer);
 			n = sizeof(buffer);
 	                xor_encrypt(key, buffer, n);
-			// printf("\nSending who has currently connected data to all clients post xor %s", buffer);
-                        send(sf2,buffer ,sizeof(buffer),0);
+			send(sf2,buffer ,sizeof(buffer),0);
 			}
                 } while (a->next != NULL);
 		if (debugsOn)
@@ -245,7 +243,7 @@ void *server(void * arguments) {
     ts_fd = args->port;
     strncpy(uname,args->username,sizeof(args->username));
     addr a;
-    a =h ;
+    a = h; 
 
     if (!checkUser(uname)) {
         syslog(LOG_INFO, "%s", "User does not exist in db.");
@@ -255,20 +253,19 @@ void *server(void * arguments) {
     // Add colon back in, need to check it doesn't go over allocated length
     uname[strlen(uname)]=':';
     uname[strlen(uname)]=' ';
-
+/*
+	bzero(ubuf,BUFFER_MAX);
     do {
         a = a->next;
-	bzero(ubuf,BUFFER_MAX);
-	// TODO add as debug
-	// printf("%s",a->username);
         sprintf(ubuf,"%s is online.",a->username);
-	// printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
+	 printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
 	n = strlen(ubuf);
         xor_encrypt(key, ubuf, n);
-	// printf("\nSending data to client contents of ubuf post xor %s", ubuf);
+	 printf("\nSending data to client contents of ubuf post xor %s", ubuf);
+	fflush(stdout);
         send(ts_fd,ubuf,n,0);
     } while(a->next != NULL);
-
+*/
     while(1) {
         bzero(buffer,BUFFER_MAX);
         y=recv(ts_fd,buffer,sizeof(buffer),0);
@@ -279,9 +276,7 @@ void *server(void * arguments) {
 	buffer[y] = '\0';
 
 	n = strlen(buffer);
-	// printf("\nData received into server pre xor - %s", buffer);
  	xor_encrypt(key, buffer, n);
-	// printf("\nData received into server post xor -%s", buffer);
 
         if (strncmp(buffer, "quit", 4) == 0) {
 cli_dis:
@@ -296,10 +291,8 @@ cli_dis:
                     removeClient(sfd, h);
                 if(sfd != ts_fd) {
 	 	    // Encrypt message
-		    // printf("\nSending data from server pre xor- %s", buffer);
 		    n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
-		    // printf("\nSending data from server post xor- %s", buffer);
                     send(sfd,buffer,n,0);
 		}
             } while (a->next != NULL);
@@ -322,10 +315,8 @@ cli_dis:
             sfd = a->port;
             if(sfd != ts_fd) {
 		// Handles sending client messages to all connected clients
-		// printf("\nSending data to client contents of msg pre xor - %s", msg);
 		n = strlen(msg);
 		xor_encrypt(key, msg, n);
-		// printf("\nSending data to client contents of msg post xor - %s size is %d", msg,n);
                 send(sfd,msg,n,0);
 	     }
         } while(a->next != NULL);
@@ -338,6 +329,7 @@ cli_dis:
 void printDebug (char *string) {
     if (debugsOn)
         printf("%s\n",string);
+    fflush(stdout);
 }
 
 clients ClientList (clients h) {

@@ -50,7 +50,6 @@ int main (int argc, char *argv[]) {
     ssize_t read;
     bool haveKey = false;
 
-
     if (argc < 2) {
         printf("Usage: ./client <server_ip> <optional_port>\n");
         exit(0);
@@ -106,7 +105,7 @@ int main (int argc, char *argv[]) {
     serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
 
     bzero(buf,10);
-    printf("\nChoose username for this chat session: ");
+    printf("Choose username for this chat session: ");
     fgets(buf,10,stdin);
     __fpurge(stdin);
     buf[strlen(buf)-1]=':';
@@ -134,6 +133,7 @@ void *chat_read (int sockfd) {
         if (signal(SIGTSTP, (void *)zzz)==0)
             while(1) {
                 bzero(buffer,BUFFER_MAX);
+		fflush(stdout);
                 n=recv(sockfd,buffer,sizeof(buffer),0);
                 if (n==0) {
                     printf("Lost connection to the server.\n\n");
@@ -142,9 +142,7 @@ void *chat_read (int sockfd) {
                 if (n>0) {
 		    // Decrypt message
 		    y = strlen(buffer);
-		    // printf("\nMessage from server pre xor - %s",buffer);
 		    xor_encrypt(key, buffer, y);
-		    // printf("\nMessage from server post xor - %s size is %d",buffer,y);
 		    if (strncmp(buffer,"shutdown",8)==0) {
 	                exit(0);
 		    }
@@ -166,9 +164,7 @@ void *chat_write (int sockfd) {
         }
 	// Encrypt message
         y = strlen(buffer);
-        // printf("\nSending data to server while connected pre xor - %s", buffer);
         xor_encrypt(key, buffer, y);
-	// printf("\nSending data to server while connected post xor - %s",buffer);
         n=send(sockfd,buffer,y,0);
 
         if (strncmp(buffer,"quit",4)==0) {
