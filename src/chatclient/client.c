@@ -34,6 +34,7 @@ void *chat_read(int);
 void *zzz();
 void printDebug(char *string);
 void writeLog(FILE *fp, char *str);
+void addYou();
 void *xor_encrypt(char *key, char *string, int n);
 bool debugsOn = false;
 char plain[] = "";
@@ -116,6 +117,7 @@ int main (int argc, char *argv[]) {
     }
     else
         printf("%s connected.\n",buf);
+	addYou();
 
     send(sockfd,buf,strlen(buf),0);
     // intptr_t fixes int return of different size 
@@ -146,7 +148,8 @@ void *chat_read (int sockfd) {
 		    if (strncmp(buffer,"shutdown",8)==0) {
 	                exit(0);
 		    }
-		    printf(": %s \n", buffer);
+		    printf("\n: %s \n", buffer);
+		    addYou();
                 }
             }
 }
@@ -162,16 +165,21 @@ void *chat_write (int sockfd) {
             bzero(buffer,BUFFER_MAX);
             __fpurge(stdin);
         }
-	// Encrypt message
-        y = strlen(buffer);
-        xor_encrypt(key, buffer, y);
-        n=send(sockfd,buffer,y,0);
+	if (strlen(buffer)>1) {
+	    // Encrypt message
+            y = strlen(buffer);
+            xor_encrypt(key, buffer, y);
+            n=send(sockfd,buffer,y,0);
 
-        if (strncmp(buffer,"quit",4)==0) {
-            exit(0);
+            if (strncmp(buffer,"quit",4)==0) {
+                exit(0);
+	    }
 	}
-
+	else
+	    __fpurge(stdin);
         bzero(buffer,BUFFER_MAX);
+	addYou();
+	
     }
 }
 
@@ -192,6 +200,10 @@ void printDebug (char *string) {
 
 void writeLog(FILE *fp, char *str) {
     fprintf(fp, "%s", str);
+}
+
+void addYou() {
+    printf("You: ");
 }
 
 // Encryption routine
