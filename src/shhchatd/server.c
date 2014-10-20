@@ -205,7 +205,10 @@ int main (int argc, char *argv[]) {
                 bzero(username,10);
 		bzero(buffer,BUFFER_MAX);
                 if (recv(new_fd,username,sizeof(username),0)>0);
-                username[strlen(username)-1]=':';
+                n = strlen(username);
+	        xor_encrypt(key, username, n);
+
+		username[strlen(username)-1]=':';
                 sprintf(buffer,"%s connected",username);
                 addClient(new_fd,username, h, a);
                 a = a->next;

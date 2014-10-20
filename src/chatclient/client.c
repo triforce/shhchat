@@ -119,6 +119,8 @@ int main (int argc, char *argv[]) {
         printf("%s connected.\n",buf);
 	addYou();
 
+    y = strlen(buf);
+    xor_encrypt(key, buf, y);
     send(sockfd,buf,strlen(buf),0);
     // intptr_t fixes int return of different size 
     pthread_create(&thr2,NULL,(void *)chat_write,(void *)(intptr_t)sockfd);
