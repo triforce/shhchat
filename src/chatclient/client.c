@@ -148,6 +148,7 @@ void *chat_read (int sockfd) {
 		    y = strlen(buffer);
 		    xor_encrypt(key, buffer, y);
 		    if (strncmp(buffer,"shutdown",8)==0) {
+			printf("\n");
 	                exit(0);
 		    }
 		    printf("\n: %s \n", buffer);

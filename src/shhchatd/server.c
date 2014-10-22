@@ -46,6 +46,7 @@ void removeClient(int port, clients h);
 void addClient(int port,char*,clients h,addr a);
 void removeAllClients(clients h);
 void displayConnected(const clients h);
+bool checkConnected (const clients h, char *username);
 void *closeServer();
 void *server(void * arg);
 void showConnected();
@@ -60,8 +61,7 @@ bool debugsOn = false;
 char plain[] = "Hello";
 char key[] = "123456";
 
-static void start_daemon()
-{
+static void start_daemon() {
     pid_t pid;
     pid = fork();
 
@@ -87,8 +87,7 @@ static void start_daemon()
     umask(0);
 
     int x;
-    for (x = sysconf(_SC_OPEN_MAX); x>0; x--)
-    {
+    for (x = sysconf(_SC_OPEN_MAX); x>0; x--) {
         close (x);
     }
    openlog("shhchatd", 0, LOG_USER);
@@ -102,7 +101,7 @@ int main (int argc, char *argv[]) {
     struct sockaddr_in client_addr;
     int cli_size,z;
     pthread_t thr;
-    int yes=1;
+    int yes = 1;
     addr a;
     FILE *fp;
     char *line = NULL;
@@ -202,14 +201,23 @@ int main (int argc, char *argv[]) {
                 cli_size=sizeof(struct sockaddr_in);
                 new_fd = accept(socket_fd, (struct sockaddr *)&client_addr,&cli_size);
                 a = h;
-                bzero(username,10);
-		bzero(buffer,BUFFER_MAX);
-                if (recv(new_fd,username,sizeof(username),0)>0);
+                bzero(username, 10);
+		bzero(buffer, BUFFER_MAX);
+                if (recv(new_fd, username, sizeof(username),0)>0);
                 n = strlen(username);
 	        xor_encrypt(key, username, n);
 
 		username[strlen(username)-1]=':';
-                sprintf(buffer,"%s connected",username);
+                sprintf(buffer, "%s logged in", username);
+		
+		// Check user hasn't already logged in
+		if (checkConnected(h, username)) {
+		    char shutdown[] = "shutdown";
+		    n = sizeof(shutdown);
+		    xor_encrypt(key, shutdown, n);
+		    send(new_fd, shutdown, 13, 0);
+		}
+		
                 addClient(new_fd,username, h, a);
                 a = a->next;
                 a = h;
@@ -223,11 +231,11 @@ int main (int argc, char *argv[]) {
 			}
                 } while (a->next != NULL);
 		if (debugsOn)
-                    printf("Connection made from %s\n\n",inet_ntoa(client_addr.sin_addr));
+                    printf("Connection made from %s\n\n", inet_ntoa(client_addr.sin_addr));
                 struct client args;
                 args.port=new_fd;
-                strncpy(args.username,username,sizeof(username));
-                pthread_create(&thr,NULL,server,(void*)&args);
+                strncpy(args.username, username, sizeof(username));
+                pthread_create(&thr, NULL, server, (void*)&args);
                 pthread_detach(thr);
             }
     removeAllClients(h);
@@ -381,6 +389,20 @@ void displayConnected (const clients h) {
     }
 }
 
+bool checkConnected (const clients h, char *username) {
+    addr a = h;
+    if (h->next == NULL)
+        return false;
+    else {
+        do {
+            a = a->next;
+	    if (strcmp(username,a->username) == 0)
+	        return true;
+        } while(a->next != NULL);
+        return false;
+    }
+}
+
 void removeClient (int port, clients h) {
     addr a, TmpCell;
     a = h;
@@ -446,7 +468,6 @@ bool checkUser (char *user) {
 
     tempUser[strlen(tempUser) - 1] = '\0';
 
-    printf("Checking user %s is in db\n",tempUser);
     fp = fopen("cfg/users", "r");
     if (fp == NULL) {
        printDebug("Failed to read users file.");
@@ -455,7 +476,6 @@ bool checkUser (char *user) {
     // Read contents of user file
     while ((read = getline(&line, &len, fp)) != -1) {
        line[strlen(line) - 1] = '\0';
-       printf("Found %s in db\n", line);
        if (strncmp(line, tempUser, sizeof(tempUser)) == 0) {
            printf("Found user %s.", tempUser);
            return true;
