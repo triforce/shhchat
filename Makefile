@@ -5,12 +5,17 @@ BIN=build
 CONF=conf
 
 # Check for Linux environment
-# ENV:=$(shell uname -s | cut -d _ -f1)
+ENV:=$(shell uname -s | cut -d _ -f1)
+
+define os_check =
+	$(if $(filter-out $(ENV), Linux), exit 1)
+endef
 
 all:
+	$(os_check)
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
-	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS)
-	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS)
+	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DVERSION='"_alpha"' -lwebsockets
+	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DVERSION='"_alpha"'
 	cp $(CONF)/* -t $(BIN)/cfg
 	@echo Finished shhchat build
 
@@ -18,10 +23,10 @@ clean:
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	@echo Finished clean
 
-
 debug:
+	$(os_check)
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
-	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DDEBUG
+	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DDEBUG -lwebsockets -g
 	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DDEBUG
 	cp $(CONF)/* -t $(BIN)/cfg
 	@echo Finished shhchat debug build
