@@ -14,8 +14,8 @@ endef
 all:
 	$(os_check)
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
-	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DVERSION='"_alpha"' -lwebsockets
-	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DVERSION='"_alpha"'
+	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DVERSION='"_beta"' -lwebsockets
+	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DVERSION='"_beta"'
 	cp $(CONF)/* -t $(BIN)/cfg
 	@echo Finished shhchat build
 
