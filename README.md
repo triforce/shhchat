@@ -8,9 +8,9 @@ A Linux command line chat program using a simple xor algorithm for text encrypti
 
 Project Status
 ==============
-Current Status: Alpha
+Current Status: Beta
 
-Next Milestone: Beta
+Next Milestone: First release
 
 
 Release Features Schedule
