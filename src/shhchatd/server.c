@@ -1,6 +1,5 @@
 /*
 shhchat server
-alpha
 */
 
 #include <stdio.h>
@@ -17,8 +16,8 @@ alpha
 #include <syslog.h>
 #include <signal.h>
 #include <sys/stat.h>
-#include <libwebsockets.h>
-#include "shhchat_ws.h"
+//#include <libwebsockets.h>
+//#include "shhchat_ws.h"
 
 #define BACKLOG 100
 #define BUFFER_MAX 1024
@@ -37,7 +36,20 @@ struct client {
    char username[10];
    unsigned int sessionId;
    struct client *next;
+   char su;
 };
+
+/*
+TODO #37 - Superuser actions
+su privs:
+===================================================
+level       name        prefix      actions
+===================================================
+    0       (none)      n/a         n/a
+    1       (mod)       +           kick users
+    2       (admin)     @           change user db
+===================================================
+*/
 
 typedef struct client *ptrtoclient;
 typedef ptrtoclient clients;
@@ -95,12 +107,13 @@ static void start_daemon() {
     for (x = sysconf(_SC_OPEN_MAX); x>0; x--) {
         close(x);
     }
+
    openlog("shhchatd", 0, LOG_USER);
    syslog(LOG_INFO, "%s", "Server daemon started.");
 }
 
 int main(int argc, char *argv[]) {
-    int socket_fd, new_fd, portnum, cli_size, z;
+    int socket_fd, new_fd, portnum, cli_size, buf_size;
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
     pthread_t thr;
@@ -129,20 +142,26 @@ int main(int argc, char *argv[]) {
 
         printDebug("Reading contents of config file.");
 
-        // TODO Create cfg if it doesn't exist
+        // TODO #11 - Create cfg if it doesn't exist
 
         // Try and open key file
         fp = fopen("cfg/key", "r");
 
         if (fp == NULL) {
-            printDebug("Failed to read key file.");
-            exit(EXIT_FAILURE);
+            printDebug("Failed to read key file in standard build dir, checking in /etc/shhchat...");
+            fp = fopen("/etc/shhchat/key", "r");
+
+            if (fp == NULL) {
+                printDebug("Failed to read key file...Exiting");
+                exit(EXIT_FAILURE);
+            }
         }
 
         // Read contents of key file
         while ((read = getline(&line, &len, fp)) != -1) {
             printDebug("Key found.");
-            strncpy(key, line, sizeof(line));
+            buf_size = sizeof(line);
+            strncpy(key, line, buf_size);
 
             if (debugsOn)
                 printf("%s", key);
@@ -200,13 +219,12 @@ int main(int argc, char *argv[]) {
         if (bind(socket_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
             syslog(LOG_INFO, "%s", "Failed to bind.");
             exit(1);
-        }
-        else
+        } else
             syslog(LOG_INFO, "%s", "Port binded.");
 
         listen(socket_fd, BACKLOG);
 
-        // Create a WebSocket thread
+        // TODO #29 - Create a WebSocket thread
         // pthread_create(&thr, NULL, webInit, portnum);
         // pthread_detach(thr);
 
@@ -214,51 +232,52 @@ int main(int argc, char *argv[]) {
             if (signal(SIGTSTP, showConnected) == 0)
                 while (1) {
                     cli_size = sizeof(struct sockaddr_in);
-                    new_fd = accept(socket_fd, (struct sockaddr *)&client_addr, &cli_size);
+                    new_fd = accept(socket_fd, (struct sockaddr *)&client_addr, (socklen_t*)&cli_size);
                     a = h;
                     bzero(username, 10);
                     bzero(buffer, BUFFER_MAX);
 
-                    if (recv(new_fd, username, sizeof(username), 0) > 0);
-                    n = strlen(username);
-                    xor_encrypt(key, username, n);
+                    if (recv(new_fd, username, sizeof(username), 0) > 0) {
+                        n = strlen(username);
+                        xor_encrypt(key, username, n);
 
-                    username[strlen(username)-1] = ':';
-                    sprintf(buffer, "%s logged in\n", username);
+                        username[strlen(username)-1] = ':';
+                        sprintf(buffer, "%s logged in\n", username);
 
-                    // Check user hasn't already logged in
-                    if (checkConnected(h, username)) {
-                        char shutdown[] = "shutdown";
-                        n = strlen(shutdown);
-                        xor_encrypt(key, shutdown, n);
-                        send(new_fd, shutdown, 13, 0);
-                    }
-
-                    addClient(new_fd, username, h, a);
-
-                    a = a->next;
-                    unsigned int tmp = a->sessionId;
-                    a = h;
-
-                    do {
-                        a = a->next;
-                        sf2 = a->port;
-                        if (sf2 != new_fd) {
-                            n = strlen(buffer);
-                            xor_encrypt(key, buffer, n);
-                            send(sf2, buffer, n, 0);
+                        // Check user hasn't already logged in
+                        if (checkConnected(h, username)) {
+                            char shutdown[] = "!!shutdown";
+                            n = strlen(shutdown);
+                            xor_encrypt(key, shutdown, n);
+                            send(new_fd, shutdown, 10, 0);
                         }
-                    } while (a->next != NULL);
 
-                    if (debugsOn)
-                        printf("Connection made from %s\n\n", inet_ntoa(client_addr.sin_addr));
+                        addClient(new_fd, username, h, a);
 
-                    struct client args;
-                    args.port = new_fd;
-                    args.sessionId = tmp;
-                    strncpy(args.username, username, sizeof(username));
-                    pthread_create(&thr, NULL, server, (void*)&args);
-                    pthread_detach(thr);
+                        a = a->next;
+                        unsigned int tmp = a->sessionId;
+                        a = h;
+
+                        do {
+                            a = a->next;
+                            sf2 = a->port;
+                            if (sf2 != new_fd) {
+                                n = strlen(buffer);
+                                xor_encrypt(key, buffer, n);
+                                send(sf2, buffer, n, 0);
+                            }
+                        } while (a->next != NULL);
+
+                        if (debugsOn)
+                            printf("Connection made from %s\n\n", inet_ntoa(client_addr.sin_addr));
+
+                        struct client args;
+                        args.port = new_fd;
+                        args.sessionId = tmp;
+                        strncpy(args.username, username, sizeof(username));
+                        pthread_create(&thr, NULL, server, (void*)&args);
+                        pthread_detach(thr);
+                    }
                 }
                 removeAllClients(h);
                 close(socket_fd);
@@ -268,26 +287,25 @@ int main(int argc, char *argv[]) {
 // Server side handling for each connected client 
 void *server(void * arguments) {
     struct client *args = arguments;
-    char buffer[BUFFER_MAX], ubuf[BUFFER_MAX], uname[10], keybuf[BUFFER_MAX];
+    char buffer[BUFFER_MAX], uname[10], keybuf[BUFFER_MAX];
     char *strp;
     char *msg = (char *) malloc(BUFFER_MAX);
     char keystr[] = "!!key";
-    int ts_fd, x, y, sfd, msglen;
+    int ts_fd, x, y, sfd, msglen, buf_size;
     unsigned int sessionId;
     ts_fd = args->port;
     strncpy(uname, args->username, sizeof(args->username));
     addr a;
     a = h;
     sessionId = args->sessionId;
+
     /*
     Server Control Commands:-
     * ??quit    - disconnects from chat session
     * ??who     - query who is connected
     * ??list    - list all users in db
-    * ??logon   - enable current session logging TODO
-    * ??logoff  - disable current session logging TODO
-    * ??sup     - gain superuser rights TODO
-    * ?!kick    - kick user (requires ??sup) TODO
+    * ??sup     - gain superuser rights TODO #37
+    * ?!kick    - kick user (requires ??sup) TODO #37
     */
 
     if (!checkUser(uname)) {
@@ -312,6 +330,7 @@ void *server(void * arguments) {
     uname[strlen(uname)] = ' ';
 
     /*
+    ubuf[BUFFER_MAX]
     bzero(ubuf,BUFFER_MAX);
     do {
         a = a->next;
@@ -353,6 +372,7 @@ void *server(void * arguments) {
         if (strncmp(buffer, "??who", 5) == 0) {
             addr a = h;
             bzero(msg, BUFFER_MAX);
+
             do {
                 a = a->next;
                 sfd = a->port;
@@ -423,7 +443,8 @@ cli_dis:
         x = strlen(msg);
         strp = msg;
         strp += x;
-        strncat(strp, buffer, sizeof(buffer));
+        buf_size = sizeof(buffer);
+        strncat(strp, buffer, buf_size);
         msglen = strlen(msg);
         addr a = h;
 
@@ -479,19 +500,22 @@ void removeAllClients(clients h) {
 }
 
 void addClient(int port, char *username, clients h, addr a) {
-    addr TmpCell;
-    TmpCell = malloc(sizeof(struct client));
+    addr tmpcell;
+    tmpcell = malloc(sizeof(struct client));
     unsigned int rangen = (unsigned int)time(NULL);
+    int buf_size;
     srand(rangen);
 
-    if (TmpCell == NULL)
+    if (tmpcell == NULL)
         syslog(LOG_INFO, "%s", "Max connections reached.");
 
-    TmpCell->port = port;
-    TmpCell->sessionId = rand();
-    strncpy(TmpCell->username, username, sizeof(username));
-    TmpCell->next = a->next;
-    a->next = TmpCell;
+    tmpcell->su = 0;
+    tmpcell->port = port;
+    tmpcell->sessionId = rand();
+    buf_size = sizeof(username);
+    strncpy(tmpcell->username, username, buf_size);
+    tmpcell->next = a->next;
+    a->next = tmpcell;
 }
 
 void displayConnected(const clients h) {
@@ -561,10 +585,10 @@ void disconnectAllClients() {
             i++;
             a = a->next;
             sfd = a->port;
-            char shutdown[] = "shutdown";
+            char shutdown[] = "!!shutdown";
             n = strlen(shutdown);
             xor_encrypt(key, shutdown, n);
-            send(sfd, shutdown, 13, 0);
+            send(sfd, shutdown, 10, 0);
         } while (a->next != NULL);
 
         printf("%d clients closed.\n\n", i);
@@ -593,6 +617,7 @@ bool checkUser(char *user) {
     ssize_t read;
     char *tmp = NULL;
     char *tempUser = NULL;
+    int buf_size;
 
     tempUser = user;
     tempUser[strlen(tempUser) - 1] = '\0';
@@ -607,8 +632,9 @@ bool checkUser(char *user) {
     // Read contents of user file
     while ((read = getline(&line, &len, fp)) != -1) {
         line[strlen(line) - 1] = '\0';
+        buf_size = sizeof(tempUser);
 
-        if (strncmp(line, tempUser, sizeof(tempUser)) == 0) {
+        if (strncmp(line, tempUser, buf_size) == 0) {
             // printf("Found user %s.", tempUser);
             fclose(fp);
             return true;
@@ -642,9 +668,7 @@ int populateDbUsers(char *msg) {
     return 1;
 }
 
-// TODO chat logging routine
-
-// WebSocket Init
+/* TODO #29 - WebSocket support
 void *webInit(void * arguments) {
     int port = atoi(arguments);
     struct lws_context_creation_info info;
@@ -689,3 +713,4 @@ void *webInit(void * arguments) {
     libwebsocket_context_destroy(context);
     exit(1);
 }
+*/
