@@ -305,7 +305,7 @@ void *server(void * arguments) {
     * ??who     - query who is connected
     * ??list    - list all users in db
     * ??sup     - gain superuser rights TODO #37
-    * ?!kick    - kick user (requires ??sup) TODO #37
+    * ?!kick    - kick user <name> (requires ??sup) TODO #37
     */
 
     if (!checkUser(uname)) {

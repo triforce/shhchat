@@ -48,6 +48,7 @@ void *xor_encrypt(char *key, char *string, int n);
 void initLog(char logname[]);
 int createPaths(char log_name_default[], char log_name_new[]);
 void exitLogError();
+void clearLogs();
 bool debugsOn = false;
 bool logsOn = false;
 bool addedYou = false;
@@ -244,11 +245,19 @@ void *chat_write(int sockfd) {
             if (strncmp(buffer, "??logon", 7) == 0) {
                 logsOn = true;
                 initLog ("shh_log");
+                addYou();
                 continue;
             }
 
             if (strncmp(buffer, "??logoff", 8) == 0) {
                 logsOn = false;
+                addYou();
+                continue;
+            }
+
+            if (strncmp(buffer, "??logclear", 10) == 0) {
+                clearLogs();
+                addYou();
                 continue;
             }
 
@@ -296,12 +305,14 @@ void printLog(char *string) {
         writeLog(fp_l, string);
 }
 
+void clearLogs() {
+    system("rm -f shh_log*");
+}
+
 void initLog(char logname[]) {
     int result;
     char log_name_default[1024] = "/";
     char log_name_new[1024] = "/";
-
-    // TODO #34 - Check if there are over 5 log files and if so remove the oldest before adding a new one
 
     strncat(log_name_default, logname, strlen(logname));
     strncat(log_name_new, logname, strlen(logname));
@@ -310,13 +321,12 @@ void initLog(char logname[]) {
     if (createPaths(log_name_default, log_name_new) == 0)
         exitLogError();
 
-    // TODO #35 - Handle error while copying
     result = rename(log_name_default, log_name_new);
 
     // Open log file
     fp_l = fopen(log_name_default, "a");
 
-    if (fp_l == NULL)
+    if (fp_l == NULL && result != 0)
         exitLogError();
 }
 
