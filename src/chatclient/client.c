@@ -1,5 +1,9 @@
 /*
-shhchat client
+=====================================
+shhchat - simple encrypted linux chat
+=====================================
+chat client
+=====================================
 */
 
 #include <stdio.h>
@@ -16,6 +20,8 @@ shhchat client
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <time.h>
+#include "../lib/shhchat_ssl.h"
+
 #define default_port 9956 
 #define BUFFER_MAX 1024
 
@@ -52,7 +58,10 @@ void clearLogs();
 bool debugsOn = false;
 bool logsOn = false;
 bool addedYou = false;
+bool sslon = false;
 FILE *fp_l;
+SSL_CTX *ssl_context;
+SSL *ssl;
 
 int main(int argc, char *argv[]) {
     pthread_t thr1, thr2;
@@ -104,8 +113,6 @@ int main(int argc, char *argv[]) {
     while ((read = getline(&line, &len, fp)) != -1) {
         buf_size = sizeof(line);
         strncpy(key, line, buf_size);
-        // Don't print key out!
-        // printf("%s", key);
         haveKey = true;
         break;
     }
@@ -117,6 +124,27 @@ int main(int argc, char *argv[]) {
         printDebug("Failed to read key file\n");
         exit(EXIT_FAILURE);
      }
+
+    // Configure SSL
+    initSSL();
+
+    ssl_context = SSL_CTX_new(SSLv2_client_method());
+         
+    if(!ssl_context) {
+        fprintf (stderr, "SSL_CTX_new ERROR\n");
+        // ERR_print_errors_fp(stderr);
+    }
+
+    if (!SSL_CTX_use_certificate_file(ssl_context, "certificate.pem", SSL_FILETYPE_PEM)) {
+        // fprintf (stderr, "SSL_CTX_use_certificate_file ERROR\n");
+        // ERR_print_errors_fp(stderr);
+    }
+    else {
+        printf("%sSSL enabled.\n%s", GREEN, RESET_COLOR);
+        sslon = true;
+    }
+
+    SSL_CTX_use_PrivateKey_file(ssl_context, "key.pem", SSL_FILETYPE_PEM);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -140,11 +168,32 @@ int main(int argc, char *argv[]) {
     } else
         printf("%s%s connected.\n%s", GREEN, buf, RESET_COLOR);
 
+    if (sslon) {
+        ssl = SSL_new(ssl_context);
+        SSL_set_fd(ssl, sockfd);
+        int ssl_done = SSL_connect(ssl);
+        // printf("%i",ssl_done);
+
+        if (ssl_done < 0) {
+            fprintf (stderr, "SSL handshake failed.\n");
+            ERR_print_errors_fp(stderr);
+
+            return EXIT_FAILURE;
+        } else {
+            printf("%sSSL handshake succeeded.\n%s", GREEN, RESET_COLOR);
+        }
+    }
+
 	addYou();
 
     y = strlen(buf);
     xor_encrypt(key, buf, y);
-    send(sockfd, buf, y, 0);
+    
+    if (sslon)
+        SSL_write(ssl, buf, y);
+    else
+        send(sockfd, buf, y, 0);
+
     // intptr_t fixes int return of different size 
     pthread_create(&thr2,NULL, (void *)chat_write, (void *)(intptr_t)sockfd);
     pthread_create(&thr1,NULL, (void *)chat_read, (void *)(intptr_t)sockfd);
@@ -161,7 +210,11 @@ void *chat_read(int sockfd) {
             while (1) {
                 bzero(buffer, BUFFER_MAX);
 		        fflush(stdout);
-                n = recv(sockfd, buffer, sizeof(buffer), 0);
+
+                if (sslon)
+                    n = SSL_read(ssl, buffer, sizeof(buffer));
+                else
+                    n = recv(sockfd, buffer, sizeof(buffer), 0);
 
                 if (n == 0) {
                     printf("%sLost connection to the server.\n\n%s", RED, RESET_COLOR);
@@ -261,6 +314,12 @@ void *chat_write(int sockfd) {
                 continue;
             }
 
+            if (strncmp(buffer, "??help", 6) == 0) {
+                clearLogs();
+                addYou();
+                continue;
+            }
+
             // End Local Requests
             // ==================
 
@@ -274,7 +333,12 @@ void *chat_write(int sockfd) {
             // Encrypt message
             y = strlen(buffer);
             xor_encrypt(key, buffer, y);
-            n = send(sockfd, buffer, y, 0);
+
+            if (sslon)
+                n = SSL_write(ssl, buffer, y);
+            else
+                n = send(sockfd, buffer, y, 0);
+
         } else
             __fpurge(stdin);
 

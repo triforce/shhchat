@@ -1,3 +1,11 @@
+/*
+=====================================
+shhchat - simple encrypted linux chat
+=====================================
+websocket lib
+=====================================
+*/
+
 #ifndef SHHCHAT_WS_H_INCLUDED
 #define SHHCHAT_WS_H_INCLUDED
 

@@ -1,5 +1,9 @@
 /*
-shhchat server
+=====================================
+shhchat - simple encrypted linux chat
+=====================================
+chat server
+=====================================
 */
 
 #include <stdio.h>
@@ -16,6 +20,7 @@ shhchat server
 #include <syslog.h>
 #include <signal.h>
 #include <sys/stat.h>
+#include "../lib/shhchat_ssl.h"
 //#include <libwebsockets.h>
 //#include "shhchat_ws.h"
 
@@ -33,6 +38,7 @@ shhchat server
 
 struct client {
    int port;
+   SSL *ssl;
    char username[10];
    unsigned int sessionId;
    struct client *next;
@@ -56,8 +62,8 @@ typedef ptrtoclient clients;
 typedef ptrtoclient addr;
 void disconnectAllClients();
 clients ClientList(clients h);
-void removeClient(int port, clients h);
-void addClient(int port, char*, clients h, addr a);
+void removeClient(int port, SSL *ssl_fd, clients h);
+void addClient(int port, SSL *ssl_fd, char*, clients h, addr a);
 void removeAllClients(clients h);
 void displayConnected(const clients h);
 bool checkConnected(const clients h, char *username);
@@ -76,6 +82,9 @@ char buffer[BUFFER_MAX];
 bool debugsOn = false;
 char plain[] = "Hello";
 char key[] = "123456";
+SSL_CTX *ssl_context;
+SSL *ssl, *ssl2;
+bool sslon = false;
 
 static void start_daemon() {
     pid_t pid;
@@ -192,6 +201,31 @@ int main(int argc, char *argv[]) {
         openlog("shhchatd", 0, LOG_USER);
         syslog(LOG_INFO, "%s", "Server setup successful.");
 
+  
+        // Setup SSL
+        initSSL();
+
+        ssl_context = SSL_CTX_new(SSLv2_server_method());
+
+        if (!ssl_context) {
+            fprintf (stderr, "SSL_CTX_new ERROR\n");
+            // ERR_print_errors_fp(stderr);
+        }
+
+        if (!SSL_CTX_use_certificate_file(ssl_context, "certificate.pem", SSL_FILETYPE_PEM)) {
+            fprintf (stderr, "SSL_CTX_use_certificate_file ERROR\n");
+            // ERR_print_errors_fp(stderr);
+        }
+        else {
+            sslon = true;
+        }
+
+        SSL_CTX_use_PrivateKey_file(ssl_context, "key.pem", SSL_FILETYPE_PEM);
+
+        if (!SSL_CTX_check_private_key(ssl_context)) {
+            sslon = false;
+        }
+        
         // Clear out list of clients
         h = ClientList(NULL);
 
@@ -233,14 +267,29 @@ int main(int argc, char *argv[]) {
                 while (1) {
                     cli_size = sizeof(struct sockaddr_in);
                     new_fd = accept(socket_fd, (struct sockaddr *)&client_addr, (socklen_t*)&cli_size);
+
+                    if (sslon) {
+                        ssl = SSL_new(ssl_context);
+                        SSL_set_fd(ssl, new_fd);
+                        int ssl_done = SSL_accept(ssl);
+                        // printf("%i",ssl_done);
+                        if (ssl_done <= 0) {
+                            fprintf (stderr, "SSL handshake failed.\n");
+                            ERR_print_errors_fp(stderr);
+
+                            return EXIT_FAILURE;
+                        } else {
+                            printf("SSL handshake succeeded.\n");
+                        }
+                    }
+
                     a = h;
                     bzero(username, 10);
                     bzero(buffer, BUFFER_MAX);
 
-                    if (recv(new_fd, username, sizeof(username), 0) > 0) {
+                    if ( (!sslon && (recv(new_fd, username, sizeof(username), 0) > 0)) || (sslon && (SSL_read(ssl, username, sizeof(username)) > 0)) )  {
                         n = strlen(username);
                         xor_encrypt(key, username, n);
-
                         username[strlen(username)-1] = ':';
                         sprintf(buffer, "%s logged in\n", username);
 
@@ -249,10 +298,14 @@ int main(int argc, char *argv[]) {
                             char shutdown[] = "!!shutdown";
                             n = strlen(shutdown);
                             xor_encrypt(key, shutdown, n);
-                            send(new_fd, shutdown, 10, 0);
+
+                            if (sslon)
+                                SSL_write(ssl, shutdown, 10);
+                            else
+                                send(new_fd, shutdown, 10, 0);
                         }
 
-                        addClient(new_fd, username, h, a);
+                        addClient(new_fd, ssl, username, h, a);
 
                         a = a->next;
                         unsigned int tmp = a->sessionId;
@@ -261,10 +314,16 @@ int main(int argc, char *argv[]) {
                         do {
                             a = a->next;
                             sf2 = a->port;
-                            if (sf2 != new_fd) {
+                            ssl2 = a->ssl;
+
+                            if ((!sslon && sf2 != new_fd) || (sslon && ssl2 != ssl)) {
                                 n = strlen(buffer);
                                 xor_encrypt(key, buffer, n);
-                                send(sf2, buffer, n, 0);
+
+                                if (sslon)
+                                    SSL_write(ssl2, buffer, n);
+                                else
+                                    send(sf2, buffer, n, 0);
                             }
                         } while (a->next != NULL);
 
@@ -272,7 +331,13 @@ int main(int argc, char *argv[]) {
                             printf("Connection made from %s\n\n", inet_ntoa(client_addr.sin_addr));
 
                         struct client args;
-                        args.port = new_fd;
+
+                        if (sslon) {
+                            args.ssl = ssl;
+                        } else {
+                            args.port = new_fd;
+                        }
+                        
                         args.sessionId = tmp;
                         strncpy(args.username, username, sizeof(username));
                         pthread_create(&thr, NULL, server, (void*)&args);
@@ -298,6 +363,8 @@ void *server(void * arguments) {
     addr a;
     a = h;
     sessionId = args->sessionId;
+    SSL *ts_ssl, *sfd_ssl;
+    ts_ssl = args->ssl;
 
     /*
     Server Control Commands:-
@@ -309,6 +376,7 @@ void *server(void * arguments) {
     */
 
     if (!checkUser(uname)) {
+
         syslog(LOG_INFO, "%s", "User does not exist in db.");
 	    goto cli_dis;
     }
@@ -322,7 +390,12 @@ void *server(void * arguments) {
     n = strlen(keybuf);
     xor_encrypt(key, keybuf, n);
     fflush(stdout);
-    send(ts_fd, keybuf, n, 0);
+
+    if (sslon)
+        SSL_write(ts_ssl, keybuf, n);
+    else
+        send(ts_fd, keybuf, n, 0);
+
     free(tmp);
 
     // Add colon back in, need to check it doesn't go over allocated length
@@ -346,7 +419,10 @@ void *server(void * arguments) {
 
     while (1) {
         bzero(buffer, BUFFER_MAX);
-        y = recv(ts_fd, buffer, sizeof(buffer), 0);
+        if (sslon)
+            y = SSL_read(ts_ssl, buffer, sizeof(buffer));
+        else
+            y = recv(ts_fd, buffer, sizeof(buffer), 0);
 
         if (y == 0)
             goto cli_dis;
@@ -376,6 +452,7 @@ void *server(void * arguments) {
             do {
                 a = a->next;
                 sfd = a->port;
+                sfd_ssl = a->ssl;
                 strncat(msg, a->username, strlen(a->username)-1);
                 strncat(msg, ", ", 2);
             } while (a->next != NULL);
@@ -384,7 +461,12 @@ void *server(void * arguments) {
             sprintf(buffer, "%s", msg);
             n = strlen(buffer);
             xor_encrypt(key, buffer, n);
-            send(ts_fd, buffer, n, 0);
+
+            if (sslon)
+                SSL_write(ts_ssl, buffer, n);
+            else
+                send(ts_fd, buffer, n, 0);
+            
             bzero(msg, BUFFER_MAX);
             continue;
         }
@@ -397,7 +479,11 @@ void *server(void * arguments) {
                 sprintf(buffer, "%s", msg);
                 n = strlen(buffer);
                 xor_encrypt(key, buffer, n);
-                send(ts_fd, buffer, n, 0);
+
+                if (sslon)
+                    SSL_write(ts_ssl, buffer, n);
+                else
+                    send(ts_fd, buffer, n, 0);
             }
 
             bzero(msg, BUFFER_MAX);
@@ -407,8 +493,12 @@ void *server(void * arguments) {
         // ??quit    - disconnects from chat session
         if (strncmp(buffer, "??quit", 6) == 0) {
 cli_dis:
-            if (debugsOn)
-	            printf("%d ->%s disconnected\n", ts_fd, uname);
+            if (debugsOn) {
+                if (sslon)
+                    printf("%d ->%s disconnected\n", ts_ssl, uname);
+                else
+                    printf("%d ->%s disconnected\n", ts_fd, uname);
+            }
 
             sprintf(buffer, "%s has disconnected\n", uname);
             addr a = h;
@@ -416,22 +506,34 @@ cli_dis:
             do {
                 a = a->next;
                 sfd = a->port;
+                sfd_ssl = a->ssl;
 
-                if (sfd == ts_fd)
-                    removeClient(sfd, h);
+                if ((!sslon && sfd == ts_fd) || (sslon && sfd_ssl == ts_ssl)) {
+                    removeClient(sfd, sfd_ssl, h);
+                }
 
-                if (sfd != ts_fd) {
+                if ((!sslon && sfd != ts_fd) || (sslon && sfd_ssl != ts_ssl)) {
 	 	            // Encrypt message
 		            n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
-                    send(sfd, buffer, n, 0);
+
+                    if (sslon)
+                        SSL_write(sfd_ssl, buffer, n);
+                    else
+                        send(sfd, buffer, n, 0);
+
+
 		        }
             } while (a->next != NULL);
 
             if (debugsOn)
                 displayConnected(h);
 
+            if (sslon)
+                SSL_free(ts_ssl);
+            
             close(ts_fd);
+
             free(msg);
             break;
         }
@@ -451,11 +553,17 @@ cli_dis:
         do {
             a = a->next;
             sfd = a->port;
-            if (sfd != ts_fd) {
+            sfd_ssl = a->ssl;
+
+            if ((!sslon && sfd != ts_fd) || (sslon && sfd_ssl != ts_ssl)) {
                 // Handles sending client messages to all connected clients
                 n = strlen(msg);
                 xor_encrypt(key, msg, n);
-                send(sfd, msg, n, 0);
+
+                if (sslon)
+                    SSL_write(sfd_ssl, msg, n);
+                else
+                    send(sfd, msg, n, 0);
 	        }
         } while (a->next != NULL);
 
@@ -499,7 +607,7 @@ void removeAllClients(clients h) {
     }
 }
 
-void addClient(int port, char *username, clients h, addr a) {
+void addClient(int port, SSL *ssl_fd, char *username, clients h, addr a) {
     addr tmpcell;
     tmpcell = malloc(sizeof(struct client));
     unsigned int rangen = (unsigned int)time(NULL);
@@ -511,6 +619,7 @@ void addClient(int port, char *username, clients h, addr a) {
 
     tmpcell->su = 0;
     tmpcell->port = port;
+    tmpcell->ssl = ssl_fd;
     tmpcell->sessionId = rand();
     buf_size = sizeof(username);
     strncpy(tmpcell->username, username, buf_size);
@@ -551,11 +660,11 @@ bool checkConnected(const clients h, char *username) {
     }
 }
 
-void removeClient(int port, clients h) {
+void removeClient(int port, SSL *ssl_fd, clients h) {
     addr a, TmpCell;
     a = h;
 
-    while (a->next != NULL && a->next->port != port)
+    while (a->next != NULL && a->next->port != port && a->next->ssl != ssl_fd)
         a = a->next;
 
     if (a->next != NULL) {
@@ -573,8 +682,9 @@ void *closeServer() {
 
 void disconnectAllClients() {
     int sfd;
-    addr a = h ;
+    addr a = h;
     int i = 0;
+    SSL *sfd_ssl;
 
     if (h->next == NULL) {
         syslog(LOG_INFO, "%s", "Closing as no clients connected.");
@@ -585,10 +695,16 @@ void disconnectAllClients() {
             i++;
             a = a->next;
             sfd = a->port;
+            sfd_ssl = a->ssl;
             char shutdown[] = "!!shutdown";
             n = strlen(shutdown);
             xor_encrypt(key, shutdown, n);
-            send(sfd, shutdown, 10, 0);
+
+            if (sslon)
+                SSL_write(sfd_ssl, shutdown, 10);
+            else
+                send(sfd, shutdown, 10, 0);
+
         } while (a->next != NULL);
 
         printf("%d clients closed.\n\n", i);

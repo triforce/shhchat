@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-lpthread --std=gnu99
+CFLAGS=-lpthread -lssl -lcrypto --std=gnu99 -I/usr/include/openssl/
 SRC=src
 BIN=build
 CONF=conf
