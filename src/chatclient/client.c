@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
     // Configure SSL
     initSSL();
 
-    ssl_context = SSL_CTX_new(SSLv2_client_method());
+    ssl_context = SSL_CTX_new(SSLv3_client_method());
          
     if(!ssl_context) {
         fprintf (stderr, "SSL_CTX_new ERROR\n");

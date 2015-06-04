@@ -205,7 +205,7 @@ int main(int argc, char *argv[]) {
         // Setup SSL
         initSSL();
 
-        ssl_context = SSL_CTX_new(SSLv2_server_method());
+        ssl_context = SSL_CTX_new(SSLv3_server_method());
 
         if (!ssl_context) {
             fprintf (stderr, "SSL_CTX_new ERROR\n");
@@ -494,10 +494,7 @@ void *server(void * arguments) {
         if (strncmp(buffer, "??quit", 6) == 0) {
 cli_dis:
             if (debugsOn) {
-                if (sslon)
-                    printf("%d ->%s disconnected\n", ts_ssl, uname);
-                else
-                    printf("%d ->%s disconnected\n", ts_fd, uname);
+                printf("%d ->%s disconnected\n", ts_fd, uname);
             }
 
             sprintf(buffer, "%s has disconnected\n", uname);
