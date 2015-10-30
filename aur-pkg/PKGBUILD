@@ -1,0 +1,24 @@
+# Maintainer: Chris Andrews <christophersimonandrews at gmail dot com>
+# Contributor: Chris Andrews <christophersimonandrews at gmail dot com>
+
+pkgname=shhchat
+pkgver=1.0
+pkgrel=1
+pkgdesc="Simple SSL encrypted chat"
+arch=('i686' 'x86_64')
+url="https://github.com/triforce/shhchat/"
+license=('GPL2')
+depends=('gcc')
+source=("${pkgname}-${pkgver}.tar.gz")
+md5sums=('94e1a59345bd24a0273e71f1099a6237')
+
+package() {
+  mkdir $pkgdir/etc $pkgdir/etc/shhchat $pkgdir/usr $pkgdir/usr/bin
+  cd $srcdir
+  mkdir build
+  make all
+  cp $srcdir/build/shhchatd $pkgdir/usr/bin
+  cp $srcdir/build/shhclient $pkgdir/usr/bin
+  cp -r $srcdir/conf/* $pkgdir/etc/shhchat
+}
+

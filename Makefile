@@ -14,6 +14,7 @@ endef
 
 all:
 	$(os_check)
+	@echo Starting shhchat build
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DVERSION='"_beta"'
 	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DVERSION='"_beta"'
@@ -28,6 +29,7 @@ clean:
 
 debug:
 	$(os_check)
+	@echo Starting shhchat build
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DDEBUG -g
 	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DDEBUG
