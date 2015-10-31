@@ -21,8 +21,9 @@ chat server
 #include <signal.h>
 #include <sys/stat.h>
 #include "../lib/shhchat_ssl.h"
+#include "../lib/shhchat_cfg.h"
 //#include <libwebsockets.h>
-//#include "shhchat_ws.h"
+//#include "../lib/shhchat_ws.h"
 
 #define BACKLOG 100
 #define BUFFER_MAX 1024
@@ -133,6 +134,10 @@ int main(int argc, char *argv[]) {
     size_t len = 0;
     ssize_t read;
     bool haveKey = false;
+    struct parameters params;
+
+    init_parameters(&params);
+    parse_config(&params);
 
     if (debug == 1)
 	    debugsOn = true;
@@ -154,16 +159,16 @@ int main(int argc, char *argv[]) {
         // TODO #11 - Create cfg if it doesn't exist
 
         // Try and open key file
-        fp = fopen("cfg/key", "r");
+        fp = fopen(params.server_simple_key, "r");
 
         if (fp == NULL) {
-            printDebug("Failed to read key file in standard build dir, checking in /etc/shhchat...");
-            fp = fopen("/etc/shhchat/key", "r");
+	    syslog(LOG_INFO, "%s", "Failed to find key file in config defined location - Checking if you have a cfg folder in the current directory...");
+            fp = fopen("cfg/key", "r");
 
-            if (fp == NULL) {
-                printDebug("Failed to read key file...Exiting");
+                   if (fp == NULL) {
+                syslog(LOG_INFO, "%s", "Key file not found - This is the minimum encryption you can have...Exiting");
                 exit(EXIT_FAILURE);
-            }
+        }
         }
 
         // Read contents of key file
@@ -212,7 +217,7 @@ int main(int argc, char *argv[]) {
             // ERR_print_errors_fp(stderr);
         }
 
-        if (!SSL_CTX_use_certificate_file(ssl_context, "certificate.pem", SSL_FILETYPE_PEM)) {
+        if (!SSL_CTX_use_certificate_file(ssl_context, params.server_ssl_cert, SSL_FILETYPE_PEM)) {
             fprintf (stderr, "SSL_CTX_use_certificate_file ERROR\n");
             // ERR_print_errors_fp(stderr);
         }
@@ -220,7 +225,7 @@ int main(int argc, char *argv[]) {
             sslon = true;
         }
 
-        SSL_CTX_use_PrivateKey_file(ssl_context, "key.pem", SSL_FILETYPE_PEM);
+        SSL_CTX_use_PrivateKey_file(ssl_context, params.server_ssl_key, SSL_FILETYPE_PEM);
 
         if (!SSL_CTX_check_private_key(ssl_context)) {
             sslon = false;
@@ -737,9 +742,13 @@ bool checkUser(char *user) {
     fp = fopen("cfg/users", "r");
 
     if (fp == NULL) {
-       printDebug("Failed to read users file.");
-       fclose(fp);
-       return false;
+       printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
+       fp = fopen("/etc/shhchat/users", "r");
+
+       if (fp == NULL) {
+           printDebug("Failed to find user file...Exiting");
+	   return false;
+       }
     }
 
     // Read contents of user file
@@ -766,9 +775,13 @@ int populateDbUsers(char *msg) {
     fp = fopen("cfg/users", "r");
 
     if (fp == NULL) {
-       printDebug("Failed to read users file.");
-       fclose(fp);
-       return 0;
+       printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
+       fp = fopen("/etc/shhchat/users", "r");
+
+       if (fp == NULL) {
+           printDebug("Failed to find user file...Exiting");
+	   return 0;
+       }
     }
 
     // Read contents of user file

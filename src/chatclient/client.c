@@ -20,7 +20,9 @@ chat client
 #include <arpa/inet.h>
 #include <stdint.h>
 #include <time.h>
+#include <pwd.h>
 #include "../lib/shhchat_ssl.h"
+#include "../lib/shhchat_cfg.h"
 
 #define default_port 9956 
 #define BUFFER_MAX 1024
@@ -37,6 +39,7 @@ chat client
 
 int sockfd, n, x, y, count;
 struct sockaddr_in serv_addr;
+char *homeDir;
 char buffer[BUFFER_MAX];
 char buf[10];
 char plain[] = "";
@@ -50,6 +53,7 @@ void printDebug(char *string);
 void printLog(char *string);
 void writeLog(FILE *fp, char *str);
 void addYou();
+void outputHelp();
 void *xor_encrypt(char *key, char *string, int n);
 void initLog(char logname[]);
 int createPaths(char log_name_default[], char log_name_new[]);
@@ -72,6 +76,10 @@ int main(int argc, char *argv[]) {
     ssize_t read;
     bool haveKey = false;
     int buf_size;
+    struct parameters params;
+
+    init_parameters(&params);
+    parse_config(&params);
 
     if (argc < 2) {
         printf("Usage: ./shhclient <server_ip> <optional_port>\n");
@@ -81,31 +89,27 @@ int main(int argc, char *argv[]) {
     if (argc == 3) {
         port = atoi(argv[2]);
     }
+    
+    if ((homeDir = getenv("HOME")) == NULL) {
+	homeDir = getpwuid(getuid())->pw_dir;
+    }
 
     printf("%sshhchat client v%s started\n%s", GREEN, VERSION, RESET_COLOR);
     printDebug("Searching for key file...\n");
 
     // Find key file for use in current session
-    fp = fopen(".sshkey", "r");
+    fp = fopen(params.client_simple_key, "r");
 
     if (fp == NULL) {
-        printf("%sKey file not found in current dir - Searching in standard build filepath...\n%s", GREEN, RESET_COLOR);
+        printf("%sKey file not found in %s directory - Checking if you have a cfg folder in the current directory...\n%s", params.client_simple_key, GREEN, RESET_COLOR);
         fp = fopen("cfg/key", "r");
 
         if (fp == NULL) {
-            printf("%sKey file not found in current standard build dir - Searching in /etc/shhchat...\n%s", RED, RESET_COLOR);
-            fp = fopen("/etc/shhchat/key", "r");
-
-            if (fp == NULL) {
-                printf("%sKey file not found...Exiting\n%s", RED, RESET_COLOR);
+                printf("%sKey file not found - This is the minimum encryption you can have...Exiting\n%s", RED, RESET_COLOR);
                 exit(EXIT_FAILURE);
-            }
-            else {
-                printf("%sKey found in /etc/shhchat dir.\n%s", GREEN, RESET_COLOR);
-            }
         }
         else {
-            printf("%sKey found in cfg dir.\n%s", GREEN, RESET_COLOR);
+            printf("%sKey found in cfg directory.\n%s", GREEN, RESET_COLOR);
         }
     }
 
@@ -130,12 +134,12 @@ int main(int argc, char *argv[]) {
 
     ssl_context = SSL_CTX_new(SSLv3_client_method());
          
-    if(!ssl_context) {
+    if (!ssl_context) {
         fprintf (stderr, "SSL_CTX_new ERROR\n");
         // ERR_print_errors_fp(stderr);
     }
 
-    if (!SSL_CTX_use_certificate_file(ssl_context, "certificate.pem", SSL_FILETYPE_PEM)) {
+    if (!SSL_CTX_use_certificate_file(ssl_context, params.client_ssl_cert, SSL_FILETYPE_PEM)) {
         // fprintf (stderr, "SSL_CTX_use_certificate_file ERROR\n");
         // ERR_print_errors_fp(stderr);
     }
@@ -144,7 +148,7 @@ int main(int argc, char *argv[]) {
         sslon = true;
     }
 
-    SSL_CTX_use_PrivateKey_file(ssl_context, "key.pem", SSL_FILETYPE_PEM);
+    SSL_CTX_use_PrivateKey_file(ssl_context, params.client_ssl_key, SSL_FILETYPE_PEM);
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -315,7 +319,7 @@ void *chat_write(int sockfd) {
             }
 
             if (strncmp(buffer, "??help", 6) == 0) {
-                clearLogs();
+                outputHelp();
                 addYou();
                 continue;
             }
@@ -427,6 +431,10 @@ void writeLog(FILE *fp, char *str) {
 void addYou() {
     addedYou = true;
     printf("You: ");
+}
+
+void outputHelp() {
+    printf("\n??logon - Start logging chat session to local file.\n??logoff - Stop logging chat session to local file.\n??logclear - Delete the current logfile.\n??who - Display which users are connected.\n??list - Show all available user accounts.\n??quit - Shutdown this client.\n");
 }
 
 // Encryption routine
