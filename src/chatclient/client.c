@@ -21,6 +21,7 @@ chat client
 #include <stdint.h>
 #include <time.h>
 #include <pwd.h>
+#include <termios.h>
 #include "../lib/shhchat_ssl.h"
 #include "../lib/shhchat_cfg.h"
 
@@ -42,6 +43,7 @@ struct sockaddr_in serv_addr;
 char *homeDir;
 char buffer[BUFFER_MAX];
 char buf[10];
+char pwbuf[25];
 char plain[] = "";
 char key[] = "123456";
 char serverKey[BUFFER_MAX];
@@ -160,11 +162,38 @@ int main(int argc, char *argv[]) {
     serv_addr.sin_port = htons(port);
     serv_addr.sin_addr.s_addr = inet_addr(argv[1]);
 
+    // Get credentials
     bzero(buf, 10);
-    printf("Choose username for this chat session: ");
+    bzero(pwbuf, 15);
+    printf("Enter username: ");
     fgets(buf, 10, stdin);
     __fpurge(stdin);
     buf[strlen(buf)-1] = ':';
+
+    struct termios oflags, nflags;
+
+    /* disabling echo */
+    tcgetattr(fileno(stdin), &oflags);
+    nflags = oflags;
+    nflags.c_lflag &= ~ECHO;
+    nflags.c_lflag |= ECHONL;
+
+    if (tcsetattr(fileno(stdin), TCSANOW, &nflags) != 0) {
+        perror("tcsetattr");
+        return EXIT_FAILURE;
+    }
+
+    printf("Enter password: ");
+    fgets(pwbuf, 15, stdin);
+    __fpurge(stdin);
+
+    if (tcsetattr(fileno(stdin), TCSANOW, &oflags) != 0) {
+        perror("tcsetattr");
+        return EXIT_FAILURE;
+    }
+
+    pwbuf[strlen(pwbuf)-1] = ':';
+    strncat(pwbuf, buf, sizeof(buf));
 
     if (connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) == -1) {
         printf("%sFailed to connect - Is the server running?\n%s", RED, RESET_COLOR);
@@ -190,13 +219,13 @@ int main(int argc, char *argv[]) {
 
 	addYou();
 
-    y = strlen(buf);
-    xor_encrypt(key, buf, y);
+    y = strlen(pwbuf);
+    xor_encrypt(key, pwbuf, y);
     
     if (sslon)
-        SSL_write(ssl, buf, y);
+        SSL_write(ssl, pwbuf, y);
     else
-        send(sockfd, buf, y, 0);
+        send(sockfd, pwbuf, y, 0);
 
     // intptr_t fixes int return of different size 
     pthread_create(&thr2,NULL, (void *)chat_write, (void *)(intptr_t)sockfd);
@@ -213,7 +242,7 @@ void *chat_read(int sockfd) {
         if (signal(SIGTSTP, (void *)zzz) == 0)
             while (1) {
                 bzero(buffer, BUFFER_MAX);
-		        fflush(stdout);
+                fflush(stdout);
 
                 if (sslon)
                     n = SSL_read(ssl, buffer, sizeof(buffer));
@@ -230,8 +259,8 @@ void *chat_read(int sockfd) {
                     y = n;
                     xor_encrypt(key, buffer, y);
 
-                    if (strncmp(buffer, "!!shutdown", 10) == 0) {
-                        printf("%s\nServer has shutdown.\n%s", GREEN, RESET_COLOR);
+                    if (strcmp(buffer, "!!shutdown") == 0) {
+                        printf("%s\nConnection closed.\n%s", GREEN, RESET_COLOR);
                         exit(0);
                     }
 
@@ -243,13 +272,12 @@ void *chat_read(int sockfd) {
 
                     if (addedYou) {
                         printLog(buffer);
-                        printf("\r%s%s%s", BLUE, buffer, RESET_COLOR);
+                        printf("\r%s%s%s\n", BLUE, buffer, RESET_COLOR);
                     } else {
                         printf("\n%s%s%s", BLUE, buffer, RESET_COLOR);
                         addedYou = false;
                     }
 
-                    fflush(stdout);
                     addYou();
                 }
             }
@@ -263,7 +291,7 @@ void *chat_write(int sockfd) {
 	    // Continuously read from stdin
 	    clear = true;
         bzero(buffer, BUFFER_MAX);
-        fflush(stdout);
+
         __fpurge(stdin);
 	    fgets(buffer, sizeof(buffer), stdin);
 
@@ -275,20 +303,21 @@ void *chat_write(int sockfd) {
 
         if (strlen(buffer) > 1) {
 
+            buffer[strcspn(buffer, "\n")] = 0;
             // ========================
             // Server Side Requests
 
-            if (strncmp(buffer, "??who", 5) == 0) {
+            if (strcmp(buffer, "??who") == 0) {
                 printf("%sUser's currently connected:%s\n", GREEN, RESET_COLOR);
                 clear = false;
             }
 
-            if (strncmp(buffer, "??list", 6) == 0) {
+            if (strcmp(buffer, "??list") == 0) {
                 printf("%sUser's in db:%s\n", GREEN, RESET_COLOR);
                 clear = false;
             }
 
-            if (strncmp(buffer, "??quit", 6) == 0) {
+            if (strcmp(buffer, "??quit") == 0) {
                 exit(0);
             }
 
@@ -297,28 +326,28 @@ void *chat_write(int sockfd) {
 
 
             // ==================
-            // Local Requests
+            // Local Commands
 
-            if (strncmp(buffer, "??logon", 7) == 0) {
+            if (strcmp(buffer, "??loggingon") == 0) {
                 logsOn = true;
                 initLog ("shh_log");
                 addYou();
                 continue;
             }
 
-            if (strncmp(buffer, "??logoff", 8) == 0) {
+            if (strcmp(buffer, "??loggingoff") == 0) {
                 logsOn = false;
                 addYou();
                 continue;
             }
 
-            if (strncmp(buffer, "??logclear", 10) == 0) {
+            if (strcmp(buffer, "??logclear") == 0) {
                 clearLogs();
                 addYou();
                 continue;
             }
 
-            if (strncmp(buffer, "??help", 6) == 0) {
+            if (strcmp(buffer, "??help") == 0) {
                 outputHelp();
                 addYou();
                 continue;

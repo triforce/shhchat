@@ -41,6 +41,7 @@ struct client {
    int port;
    SSL *ssl;
    char username[10];
+   char password[15];
    unsigned int sessionId;
    struct client *next;
    char su;
@@ -64,7 +65,7 @@ typedef ptrtoclient addr;
 void disconnectAllClients();
 clients ClientList(clients h);
 void removeClient(int port, SSL *ssl_fd, clients h);
-void addClient(int port, SSL *ssl_fd, char*, clients h, addr a);
+void addClient(int port, SSL *ssl_fd, char*, char*, clients h, addr a);
 void removeAllClients(clients h);
 void displayConnected(const clients h);
 bool checkConnected(const clients h, char *username);
@@ -74,9 +75,12 @@ void showConnected();
 void xor_encrypt(char *key, char *string, int n);
 void printDebug(char *string);
 void *webInit(void * arg);
-bool checkUser(char *string);
+bool checkCredentials(char *user, char *pass);
 int populateDbUsers(char *msg);
+char *convertToString(char *);
 char username[10];
+char password[15];
+char pwbuf[25];
 int sf2, n, count;
 clients h;
 char buffer[BUFFER_MAX];
@@ -86,6 +90,7 @@ char key[] = "123456";
 SSL_CTX *ssl_context;
 SSL *ssl, *ssl2;
 bool sslon = false;
+bool pw_change = false;
 
 static void start_daemon() {
     pid_t pid;
@@ -133,7 +138,7 @@ int main(int argc, char *argv[]) {
     char *line = NULL;
     size_t len = 0;
     ssize_t read;
-    bool haveKey = false;
+    bool have_key = false;
     struct parameters params;
 
     init_parameters(&params);
@@ -162,13 +167,13 @@ int main(int argc, char *argv[]) {
         fp = fopen(params.server_simple_key, "r");
 
         if (fp == NULL) {
-	    syslog(LOG_INFO, "%s", "Failed to find key file in config defined location - Checking if you have a cfg folder in the current directory...");
+            syslog(LOG_INFO, "%s", "Failed to find key file in config defined location - Checking if you have a cfg folder in the current directory...");
             fp = fopen("cfg/key", "r");
 
-                   if (fp == NULL) {
+            if (fp == NULL) {
                 syslog(LOG_INFO, "%s", "Key file not found - This is the minimum encryption you can have...Exiting");
                 exit(EXIT_FAILURE);
-        }
+            }
         }
 
         // Read contents of key file
@@ -180,14 +185,14 @@ int main(int argc, char *argv[]) {
             if (debugsOn)
                 printf("%s", key);
 
-            haveKey = true;
+            have_key = true;
             break;
         }
 
         fclose(fp);
         free(line);
 
-        if (!haveKey) {
+        if (!have_key) {
             printDebug("Failed to read key file.");
             exit(EXIT_FAILURE);
          }
@@ -206,7 +211,6 @@ int main(int argc, char *argv[]) {
         openlog("shhchatd", 0, LOG_USER);
         syslog(LOG_INFO, "%s", "Server setup successful.");
 
-  
         // Setup SSL
         initSSL();
 
@@ -281,7 +285,6 @@ int main(int argc, char *argv[]) {
                         if (ssl_done <= 0) {
                             fprintf (stderr, "SSL handshake failed.\n");
                             ERR_print_errors_fp(stderr);
-
                             return EXIT_FAILURE;
                         } else {
                             printf("SSL handshake succeeded.\n");
@@ -289,17 +292,41 @@ int main(int argc, char *argv[]) {
                     }
 
                     a = h;
+                    bzero(pwbuf, 25);
                     bzero(username, 10);
+                    bzero(password, 15);
                     bzero(buffer, BUFFER_MAX);
 
-                    if ( (!sslon && (recv(new_fd, username, sizeof(username), 0) > 0)) || (sslon && (SSL_read(ssl, username, sizeof(username)) > 0)) )  {
-                        n = strlen(username);
-                        xor_encrypt(key, username, n);
-                        username[strlen(username)-1] = ':';
-                        sprintf(buffer, "%s logged in\n", username);
+                    if ( (!sslon && (recv(new_fd, pwbuf, sizeof(pwbuf), 0) > 0)) || (sslon && (SSL_read(ssl, pwbuf, sizeof(pwbuf)) > 0)) )  {
+                        n = strlen(pwbuf);
+                        xor_encrypt(key, pwbuf, n);
 
-                        // Check user hasn't already logged in
-                        if (checkConnected(h, username)) {
+                        // Get credentials
+                        char *result;
+                        char original_username[10];
+                        char original_pass[15];
+
+                        result = strtok(pwbuf, ":");
+                        strncpy(password, result, strlen(result));
+                        result = strtok(NULL, ":");
+                        strncpy(username, result, strlen(result));
+                        username[strlen(username)] = ':';
+
+                        // Save these for later when creating the new client
+                        memcpy(original_pass, password, sizeof(password));
+                        memcpy(original_username, username, sizeof(username));
+
+                        // Run checks on the credentials
+                        if (checkConnected(h, username) || !checkCredentials(username, password)) {
+                            char upi[] = "Username / password incorrect or your user is already connected elsewhere.\n";
+                            n = strlen(upi);
+                            xor_encrypt(key, upi, n);
+
+                            if (sslon)
+                                SSL_write(ssl, upi, strlen(upi));
+                            else
+                                send(new_fd, upi, strlen(upi), 0);
+
                             char shutdown[] = "!!shutdown";
                             n = strlen(shutdown);
                             xor_encrypt(key, shutdown, n);
@@ -310,12 +337,26 @@ int main(int argc, char *argv[]) {
                                 send(new_fd, shutdown, 10, 0);
                         }
 
-                        addClient(new_fd, ssl, username, h, a);
+                        if (pw_change) {
+                            char nopwd[] = "No password in database, setting password up.\n";
+                            n = strlen(nopwd);
+                            xor_encrypt(key, nopwd, n);
+
+                            if (sslon)
+                                SSL_write(ssl, nopwd, strlen(nopwd));
+                            else
+                                send(new_fd, nopwd, strlen(nopwd), 0);
+                        }
+
+                        pw_change = false;
+                        addClient(new_fd, ssl, original_username, original_pass, h, a);
 
                         a = a->next;
                         unsigned int tmp = a->sessionId;
                         a = h;
+                        sprintf(buffer, "%s logged in", original_username);
 
+                        // Inform all connected clients of new arrival
                         do {
                             a = a->next;
                             sf2 = a->port;
@@ -332,8 +373,9 @@ int main(int argc, char *argv[]) {
                             }
                         } while (a->next != NULL);
 
-                        if (debugsOn)
+                        if (debugsOn) {
                             printf("Connection made from %s\n\n", inet_ntoa(client_addr.sin_addr));
+                        }
 
                         struct client args;
 
@@ -344,7 +386,7 @@ int main(int argc, char *argv[]) {
                         }
                         
                         args.sessionId = tmp;
-                        strncpy(args.username, username, sizeof(username));
+                        strncpy(args.username, original_username, sizeof(original_username));
                         pthread_create(&thr, NULL, server, (void*)&args);
                         pthread_detach(thr);
                     }
@@ -380,12 +422,6 @@ void *server(void * arguments) {
     * ?!kick    - kick user <name> (requires ??sup) TODO #37
     */
 
-    if (!checkUser(uname)) {
-
-        syslog(LOG_INFO, "%s", "User does not exist in db.");
-	    goto cli_dis;
-    }
-
     // Send client unique key
     bzero(keybuf, BUFFER_MAX);
     sprintf(keybuf, "%u", args->sessionId);
@@ -394,7 +430,6 @@ void *server(void * arguments) {
     strcat(keybuf, tmp);
     n = strlen(keybuf);
     xor_encrypt(key, keybuf, n);
-    fflush(stdout);
 
     if (sslon)
         SSL_write(ts_ssl, keybuf, n);
@@ -402,11 +437,10 @@ void *server(void * arguments) {
         send(ts_fd, keybuf, n, 0);
 
     free(tmp);
-
     // Add colon back in, need to check it doesn't go over allocated length
-    uname[strlen(uname)] = ':';
-    uname[strlen(uname)] = ' ';
-
+    // uname[strlen(uname)] = ':';
+    // uname[strlen(uname)] = ' ';
+    // printf("username after : %s", uname);
     /*
     ubuf[BUFFER_MAX]
     bzero(ubuf,BUFFER_MAX);
@@ -450,7 +484,7 @@ void *server(void * arguments) {
         }
 
         // ??who     - query who is connected
-        if (strncmp(buffer, "??who", 5) == 0) {
+        if (strcmp(buffer, "??who") == 0) {
             addr a = h;
             bzero(msg, BUFFER_MAX);
 
@@ -477,7 +511,7 @@ void *server(void * arguments) {
         }
 
         // ??list     - list all users in db
-        if (strncmp(buffer, "??list", 6) == 0) {
+        if (strcmp(buffer, "??list") == 0) {
 
             if (populateDbUsers(msg) == 1) {
                 strncat(msg, "\n", 2);
@@ -496,7 +530,7 @@ void *server(void * arguments) {
         }
 
         // ??quit    - disconnects from chat session
-        if (strncmp(buffer, "??quit", 6) == 0) {
+        if (strcmp(buffer, "??quit") == 0) {
 cli_dis:
             if (debugsOn) {
                 printf("%d ->%s disconnected\n", ts_fd, uname);
@@ -543,6 +577,9 @@ cli_dis:
         if (debugsOn)
             printf("\nData in buffer after disconnect check: %s %s\n", uname, buffer);
 
+        // Add blank space after username so it reads on other clients as 'user1: ' + buffer
+        uname[strlen(uname)] = ' ';
+        uname[strlen(uname) + 1] = '\0';
 	    strncpy(msg, uname, sizeof(uname));
         x = strlen(msg);
         strp = msg;
@@ -580,8 +617,6 @@ cli_dis:
 void printDebug(char *string) {
     if (debugsOn)
         printf("%s\n", string);
-
-    fflush(stdout);
 }
 
 clients ClientList(clients h) {
@@ -609,7 +644,7 @@ void removeAllClients(clients h) {
     }
 }
 
-void addClient(int port, SSL *ssl_fd, char *username, clients h, addr a) {
+void addClient(int port, SSL *ssl_fd, char *username, char *password, clients h, addr a) {
     addr tmpcell;
     tmpcell = malloc(sizeof(struct client));
     unsigned int rangen = (unsigned int)time(NULL);
@@ -625,6 +660,8 @@ void addClient(int port, SSL *ssl_fd, char *username, clients h, addr a) {
     tmpcell->sessionId = rand();
     buf_size = sizeof(username);
     strncpy(tmpcell->username, username, buf_size);
+    buf_size = sizeof(password);
+    strncpy(tmpcell->password, password, buf_size);
     tmpcell->next = a->next;
     a->next = tmpcell;
 }
@@ -728,40 +765,104 @@ void xor_encrypt(char *key, char *string, int n) {
     }
 }
 
-bool checkUser(char *user) {
-    FILE *fp;
-    char *line = NULL;
+char *convertToString(char *encrypted_pass) {
+    int i;
+    char *md5string = (char*)malloc(33);
+
+    for (i = 0; i < 16; ++i) {
+        snprintf(&(md5string[i*2]), 16*2, "%02x", (unsigned int)encrypted_pass[i]);
+    }
+    return md5string;
+}
+
+bool checkCredentials(char *user, char *pass) {
+    FILE *fp, *fp_o;
+    char *line, *tmp = NULL;
     size_t len = 0;
     ssize_t read;
-    char *tmp = NULL;
-    char *tempUser = NULL;
     int buf_size;
+    bool found_user, pass_updated, using_etc = false;
+    unsigned char encrypted_pass[16];
+    char new_line[40];
 
-    tempUser = user;
-    tempUser[strlen(tempUser) - 1] = '\0';
-    fp = fopen("cfg/users", "r");
+    MD5(pass, strlen(pass), encrypted_pass);
+    char *md5string = convertToString(encrypted_pass);
+
+    user[strlen(user) - 1] = '\0';
+
+    fp = fopen("cfg/users", "r+");
+    fp_o = fopen("cfg/pwds", "w+");
 
     if (fp == NULL) {
-       printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
-       fp = fopen("/etc/shhchat/users", "r");
+        printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
+        fp = fopen("/etc/shhchat/users", "a+");
 
-       if (fp == NULL) {
-           printDebug("Failed to find user file...Exiting");
-	   return false;
-       }
+        if (fp == NULL) {
+            printDebug("Failed to find user file...Exiting");
+            free(md5string);
+            fclose(fp_o);
+            return false;
+        }
+        using_etc = true;
     }
 
     // Read contents of user file
     while ((read = getline(&line, &len, fp)) != -1) {
-        line[strlen(line) - 1] = '\0';
-        buf_size = sizeof(tempUser);
+        // line[strlen(line) - 1] = '\0';
+        // buf_size = sizeof(temp_user);
+        strncpy(new_line, line, strlen(line));
+        char *user_result;
+        char *pass_result;
+        user_result = strtok(line, ":");
 
-        if (strncmp(line, tempUser, buf_size) == 0) {
-            // printf("Found user %s.", tempUser);
-            fclose(fp);
-            return true;
+        if (strcmp(user_result, user) == 0) {
+            pass_result = strtok(NULL, ":");
+            found_user = true;
+            
+            if (strlen(pass_result) > 1) {
+                if (strncmp(pass_result, md5string, 32) == 0) {
+                    fseek(fp_o, 0, SEEK_END);
+                    fputs(new_line, fp_o);
+                } else {
+                    found_user = false;
+                }
+            }
+            else {
+                pass_updated = true;
+            }
+        } else {
+            fseek(fp_o, 0, SEEK_END);
+            fputs(new_line, fp_o);
         }
     }
+
+    if (found_user) {
+        if (pass_updated) {
+            fseek(fp_o, 0, SEEK_END);
+            user[strlen(user)] = ':';
+            strncat(user, md5string, strlen(md5string));
+            user[strlen(user)] = '\n';
+            user[strlen(user) + 1] = '\0';
+            fputs(user, fp_o);
+            pw_change = true;
+        }
+        free(md5string);
+        free(line);
+        fclose(fp_o);
+        fclose(fp);
+
+        if (using_etc) {
+            rename("cfg/pwds", "/etc/shhchat/users");
+        } else {
+            rename("cfg/pwds", "cfg/users");
+        }
+        return true;
+    }
+
+    syslog(LOG_INFO, "%s", "User does not exist in db or password was incorrect.");
+    free(md5string);
+    free(line);
+    fclose(fp_o);
     fclose(fp);
     return false;
 }
@@ -775,18 +876,20 @@ int populateDbUsers(char *msg) {
     fp = fopen("cfg/users", "r");
 
     if (fp == NULL) {
-       printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
-       fp = fopen("/etc/shhchat/users", "r");
+        printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
+        fp = fopen("/etc/shhchat/users", "r");
 
-       if (fp == NULL) {
-           printDebug("Failed to find user file...Exiting");
-	   return 0;
-       }
+        if (fp == NULL) {
+            printDebug("Failed to find user file...Exiting");
+            return 0;
+        }
     }
 
     // Read contents of user file
     while ((read = getline(&line, &len, fp)) != -1) {
-        strncat(msg, line, strlen(line)-1);
+        char *user_result;
+        user_result = strtok(line, ":");
+        strncat(msg, user_result, strlen(user_result));
         strncat(msg, ", ", 2);
     }
 

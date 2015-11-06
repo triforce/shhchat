@@ -12,11 +12,11 @@ ssl lib
 #include <openssl/bio.h> 
 #include <openssl/ssl.h> 
 #include <openssl/err.h> 
+#include <openssl/md5.h>
 
 void initSSL();
 void destroySSL();
 void closeSSL(SSL *ssl);
-
 void initSSL() {
     SSL_load_error_strings();
     SSL_library_init();
