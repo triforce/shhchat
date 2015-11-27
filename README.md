@@ -4,14 +4,12 @@ SHHH! It's a secret!
 
 A Linux command-line multi-user chat program using SSL.
 
-Project Status
-==============
+<h3>Project Status</h3>
 Current: Beta
 
 Next Milestone: 0.1 release
 
-Release Features Schedule
-=========================
+<h3>Release Features Schedule</h3>
 
 0.1
 
@@ -20,7 +18,6 @@ Release Features Schedule
 * A simple user/password file managed by the server.
 * SSL support.
 
-Setting up SSL
-==============
+<h3>Setting up SSL</h3>
 
 shhchat supports SSL that requires a certificate and private key for both client and server. Have a look at http://dst.lbl.gov/~boverhof/openssl_certs.html for a simple guide.
