@@ -172,7 +172,7 @@ int main(int argc, char *argv[]) {
 
     struct termios oflags, nflags;
 
-    /* disabling echo */
+    // Disabling echo
     tcgetattr(fileno(stdin), &oflags);
     nflags = oflags;
     nflags.c_lflag &= ~ECHO;
@@ -304,7 +304,7 @@ void *chat_write(int sockfd) {
         if (strlen(buffer) > 1) {
 
             buffer[strcspn(buffer, "\n")] = 0;
-            // ========================
+            // ====================
             // Server Side Requests
 
             if (strcmp(buffer, "??who") == 0) {
@@ -325,7 +325,7 @@ void *chat_write(int sockfd) {
             // ========================
 
 
-            // ==================
+            // ==============
             // Local Commands
 
             if (strcmp(buffer, "??loggingon") == 0) {
@@ -353,7 +353,7 @@ void *chat_write(int sockfd) {
                 continue;
             }
 
-            // End Local Requests
+            // End Local Commands
             // ==================
 
             printLog(buffer);
