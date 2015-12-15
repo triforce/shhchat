@@ -10,11 +10,7 @@ url="https://github.com/triforce/shhchat/"
 license=('GPL2')
 depends=('gcc')
 source=("${pkgname}-${pkgver}.tar.gz")
-<<<<<<< HEAD
 md5sums=('94e1a59345bd24a0273e71f1099a6237')
-=======
-md5sums=('221955037ff0b791a56b2d73cbd4abaa')
->>>>>>> a93207c2f703576b9ffe1e5402741fdecd9b0d0b
 
 package() {
   mkdir $pkgdir/etc $pkgdir/etc/shhchat $pkgdir/usr $pkgdir/usr/bin
