@@ -9,7 +9,7 @@ Current: Beta
 
 Next Milestone: 0.1 release
 
-<h3>Release Features Schedule</h3>
+<h3>Release Schedule</h3>
 
 0.1
 
