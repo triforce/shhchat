@@ -183,8 +183,14 @@ int main(int argc, char *argv[]) {
         return EXIT_FAILURE;
     }
 
+    enter_pw:
     printf("Enter password: ");
     fgets(pwbuf, 15, stdin);
+    if (strlen(pwbuf) < 5) {
+        __fpurge(stdin);
+        printf("Password too short, try again..\n");
+        goto enter_pw;
+    }
     __fpurge(stdin);
 
     if (tcsetattr(fileno(stdin), TCSANOW, &oflags) != 0) {
