@@ -18,9 +18,9 @@ all:
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DVERSION='"_beta"'
 	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DVERSION='"_beta"'
-	rm -rf $(BIN)/cfg
-	mkdir $(BIN)/cfg
-	cp $(CONF)/* -t $(BIN)/cfg
+	rm -rf $(BIN)/$(CONF)
+	mkdir $(BIN)/$(CONF)
+	cp $(CONF)/* -t $(BIN)/$(CONF)
 	@echo Finished shhchat build
 
 clean:
@@ -33,7 +33,7 @@ debug:
 	rm -f $(BIN)/shhchatd $(BIN)/shhclient
 	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) -DDEBUG -g
 	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DDEBUG
-	rm -rf $(BIN)/cfg
-	mkdir $(BIN)/cfg
-	cp $(CONF)/* -t $(BIN)/cfg
+	rm -rf $(BIN)/$(CONF)
+	mkdir $(BIN)/$(CONF)
+	cp $(CONF)/* -t $(BIN)/$(CONF)
 	@echo Finished shhchat debug build

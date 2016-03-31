@@ -23,17 +23,35 @@ struct parameters {
     char server_simple_key[MAXLEN];
     char server_ssl_key[MAXLEN];
     char server_ssl_cert[MAXLEN];
-}
+} parameters;
 
-parameters;
-
-void init_parameters(struct parameters *params);
+void init_parameters(struct parameters *params, char *home);
 void parse_config(struct parameters *params);
 
-void init_parameters(struct parameters *params) {
-    strncpy(params->client_simple_key, ".shhkey", MAXLEN);
-    strncpy(params->client_ssl_key, "/home/user/.shh_key", MAXLEN);
-    strncpy(params->client_ssl_cert, "/home/user/.shh_certificate", MAXLEN);
+void init_parameters(struct parameters *params, char *home) {
+    char key[] = "/.key";
+    char ssl_key[] = "/.shh_key";
+    char ssl_cert[] = "/.shh_certificate";
+    char tmp[50];
+    memset(&tmp, 0, sizeof(tmp));
+
+    if (home != NULL) {
+        strncpy(tmp, home, strlen(home));
+        strncat(tmp, key, sizeof(key));
+        strncpy(params->client_simple_key, tmp, MAXLEN);
+        memset(&tmp, 0, sizeof(tmp));
+
+        strncpy(tmp, home, strlen(home));
+        strncat(tmp, ssl_key, sizeof(ssl_key));
+        strncpy(params->client_ssl_key, ssl_key, MAXLEN);
+        memset(&tmp, 0, sizeof(tmp));
+
+        strncpy(tmp, home, strlen(home));
+        strncat(tmp, ssl_cert, sizeof(ssl_cert));
+        strncpy(params->client_ssl_cert, ssl_cert, MAXLEN);
+        memset(&tmp, 0, sizeof(tmp));
+    }
+    
     strncpy(params->server_simple_key, "/etc/shhchat/key", MAXLEN);
     strncpy(params->server_ssl_key, "/etc/shhchat/shh_key.pem", MAXLEN);
     strncpy(params->server_ssl_cert, "/etc/shhchat/shh_certificate.pem", MAXLEN);

@@ -32,6 +32,12 @@ chat client
 #define VERSION "_beta"
 #endif
 
+#ifdef DEBUG
+#define debug 1
+#else
+#define debug 0 
+#endif
+
 #define RED "\e[1;31m"
 #define GREEN "\e[1;32m"
 #define YELLOW "\e[1;33m"
@@ -80,7 +86,15 @@ int main(int argc, char *argv[]) {
     int buf_size;
     struct parameters params;
 
-    init_parameters(&params);
+    if ((homeDir = getenv("HOME")) == NULL) {
+        homeDir = getpwuid(getuid())->pw_dir;
+    }
+
+    if (debug == 1) {
+        debugsOn = true;
+    }
+
+    init_parameters(&params, homeDir);
     parse_config(&params);
 
     if (argc < 2) {
@@ -91,10 +105,6 @@ int main(int argc, char *argv[]) {
     if (argc == 3) {
         port = atoi(argv[2]);
     }
-    
-    if ((homeDir = getenv("HOME")) == NULL) {
-	homeDir = getpwuid(getuid())->pw_dir;
-    }
 
     printf("%sshhchat client v%s started\n%s", GREEN, VERSION, RESET_COLOR);
     printDebug("Searching for key file...\n");
@@ -103,15 +113,15 @@ int main(int argc, char *argv[]) {
     fp = fopen(params.client_simple_key, "r");
 
     if (fp == NULL) {
-        printf("%sKey file not found in %s directory - Checking if you have a cfg folder in the current directory...\n%s", params.client_simple_key, GREEN, RESET_COLOR);
-        fp = fopen("cfg/key", "r");
+        printf("Key file not found in '%s' - Checking in conf directory...\n", homeDir);
+        fp = fopen("conf/key", "r");
 
         if (fp == NULL) {
                 printf("%sKey file not found - This is the minimum encryption you can have...Exiting\n%s", RED, RESET_COLOR);
                 exit(EXIT_FAILURE);
         }
         else {
-            printf("%sKey found in cfg directory.\n%s", GREEN, RESET_COLOR);
+            printf("%sKey found in conf directory.\n%s", GREEN, RESET_COLOR);
         }
     }
 
@@ -134,7 +144,7 @@ int main(int argc, char *argv[]) {
     // Configure SSL
     initSSL();
 
-    ssl_context = SSL_CTX_new(SSLv3_client_method());
+    ssl_context = SSL_CTX_new(TLSv1_2_client_method());
          
     if (!ssl_context) {
         fprintf (stderr, "SSL_CTX_new ERROR\n");
@@ -265,9 +275,14 @@ void *chat_read(int sockfd) {
                     y = n;
                     xor_encrypt(key, buffer, y);
 
-                    if (strcmp(buffer, "!!shutdown") == 0) {
-                        printf("%s\nConnection closed.\n%s", GREEN, RESET_COLOR);
-                        exit(0);
+                    if (strncmp(buffer, "!!shutdown", 10) == 0) {
+                        if (strlen(buffer) > 10) {
+                            printf("%s\n%s%s", GREEN, buffer + 10, RESET_COLOR);
+                            exit(0);
+                        } else {
+                            printf("%s\nConnection closed.\n%s", GREEN, RESET_COLOR);
+                            exit(0);
+                        }
                     }
 
                     // Special server commands are preceded by '!!'

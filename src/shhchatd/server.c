@@ -141,7 +141,7 @@ int main(int argc, char *argv[]) {
     bool have_key = false;
     struct parameters params;
 
-    init_parameters(&params);
+    init_parameters(&params, NULL);
     parse_config(&params);
 
     if (debug == 1)
@@ -161,14 +161,14 @@ int main(int argc, char *argv[]) {
 
         printDebug("Reading contents of config file.");
 
-        // TODO #11 - Create cfg if it doesn't exist
+        // TODO #11 - Create conf if it doesn't exist
 
         // Try and open key file
         fp = fopen(params.server_simple_key, "r");
 
         if (fp == NULL) {
-            syslog(LOG_INFO, "%s", "Failed to find key file in config defined location - Checking if you have a cfg folder in the current directory...");
-            fp = fopen("cfg/key", "r");
+            syslog(LOG_INFO, "%s", "Failed to find key file in config defined location - Checking if you have a conf folder in the current directory...");
+            fp = fopen("conf/key", "r");
 
             if (fp == NULL) {
                 syslog(LOG_INFO, "%s", "Key file not found - This is the minimum encryption you can have...Exiting");
@@ -214,7 +214,7 @@ int main(int argc, char *argv[]) {
         // Setup SSL
         initSSL();
 
-        ssl_context = SSL_CTX_new(SSLv3_server_method());
+        ssl_context = SSL_CTX_new(TLSv1_2_server_method());
 
         if (!ssl_context) {
             fprintf (stderr, "SSL_CTX_new ERROR\n");
@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
 
                         // Run checks on the credentials
                         if (checkConnected(h, username) || !checkCredentials(username, password)) {
-                            char upi[] = "Username / password incorrect or your user is already connected elsewhere.\n";
+                            char upi[] = "!!shutdownUsername / password incorrect or your user is already connected elsewhere.\n";
                             n = strlen(upi);
                             xor_encrypt(key, upi, n);
 
@@ -326,15 +326,6 @@ int main(int argc, char *argv[]) {
                                 SSL_write(ssl, upi, strlen(upi));
                             else
                                 send(new_fd, upi, strlen(upi), 0);
-
-                            char shutdown[] = "!!shutdown";
-                            n = strlen(shutdown);
-                            xor_encrypt(key, shutdown, n);
-
-                            if (sslon)
-                                SSL_write(ssl, shutdown, 10);
-                            else
-                                send(new_fd, shutdown, 10, 0);
                         }
 
                         if (pw_change) {
@@ -790,8 +781,8 @@ bool checkCredentials(char *user, char *pass) {
 
     user[strlen(user) - 1] = '\0';
 
-    fp = fopen("cfg/users", "r+");
-    fp_o = fopen("cfg/pwds", "w+");
+    fp = fopen("conf/users", "r+");
+    fp_o = fopen("conf/pwds", "w+");
 
     if (fp == NULL) {
         printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
@@ -800,10 +791,24 @@ bool checkCredentials(char *user, char *pass) {
         if (fp == NULL) {
             printDebug("Failed to find user file...Exiting");
             free(md5string);
-            fclose(fp_o);
+            if (fp_o != NULL) {
+                fclose(fp_o);
+            }
             return false;
         }
         using_etc = true;
+    }
+
+    if (fp_o == NULL) {
+        fp_o = fopen("/etc/shhchat/pwds", "w+");
+
+        if (fp_o == NULL) {
+            printDebug("Failed to find pwd file...Exiting");
+            if (fp != NULL) {
+                fclose(fp);
+            }
+            return false;
+        }
     }
 
     // Read contents of user file
@@ -852,9 +857,9 @@ bool checkCredentials(char *user, char *pass) {
         fclose(fp);
 
         if (using_etc) {
-            rename("cfg/pwds", "/etc/shhchat/users");
+            rename("/etc/shhchat/pwds", "/etc/shhchat/users");
         } else {
-            rename("cfg/pwds", "cfg/users");
+            rename("conf/pwds", "conf/users");
         }
         return true;
     }
@@ -873,7 +878,7 @@ int populateDbUsers(char *msg) {
     size_t len = 0;
     ssize_t read;
 
-    fp = fopen("cfg/users", "r");
+    fp = fopen("conf/users", "r");
 
     if (fp == NULL) {
         printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
