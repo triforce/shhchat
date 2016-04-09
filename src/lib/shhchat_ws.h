@@ -25,15 +25,12 @@ static int handle_ws_requests(
     void *user, void *in, size_t len) {
         switch (reason) {
             case LWS_CALLBACK_ESTABLISHED:
-                printf("Connected\n");
                 break;
             case LWS_CALLBACK_RECEIVE: {
-                unsigned char *buf = (unsigned char*) malloc(LWS_SEND_BUFFER_PRE_PADDING + len +
-                                                             LWS_SEND_BUFFER_POST_PADDING);
-
+                unsigned char *buf = (unsigned char*) malloc(LWS_SEND_BUFFER_PRE_PADDING + len + LWS_SEND_BUFFER_POST_PADDING);
                 int i;
 
-                for (i=0;i < len;i++) {
+                for (i = 0; i < len; i++) {
                     buf[LWS_SEND_BUFFER_PRE_PADDING + (len - 1) - i ] = ((char *) in)[i];
                 }
 
@@ -45,6 +42,8 @@ static int handle_ws_requests(
                 free(buf);
                 break;
             }
+            case LWS_CALLBACK_CLOSED:
+                break;
             default:
                 break;
         }
@@ -62,7 +61,6 @@ static struct libwebsocket_protocols protocols[] = {
         "shhchat-protocol",
         handle_ws_requests,
         0
-
     },
     {
         NULL, NULL, 0

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>shhchat web client</title>
+	<meta name="description" content="shhchat web client">
+	<meta name="author" content="Chris Andrews">
+	<script src="shhchat.sock.js"></script>
+</head>
+<body>
+	<!-- <h1>shhchat web client example</h1> -->
+	<h2 id="shhchat-status">Disconnected</h2>
+	<button id="shhchat-connect">Connect</button>
+	<button id="shhchat-disconnect">Disconnect</button>
+	<textarea cols="60" rows="8" id="shhchat-box" /></textarea>
+	<input id="shhchat-input" />
+	<button id="shhchat-send">Send</button>
+	<script>shhchatWebSocket.start();</script>
+</body>
+</html>

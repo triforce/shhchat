@@ -22,8 +22,8 @@ chat server
 #include <sys/stat.h>
 #include "../lib/shhchat_ssl.h"
 #include "../lib/shhchat_cfg.h"
-//#include <libwebsockets.h>
-//#include "../lib/shhchat_ws.h"
+#include <libwebsockets.h>
+#include "../lib/shhchat_ws.h"
 
 #define BACKLOG 100
 #define BUFFER_MAX 1024
@@ -74,14 +74,14 @@ void *server(void * arg);
 void showConnected();
 void xor_encrypt(char *key, char *string, int n);
 void printDebug(char *string);
-void *webInit(void * arg);
+void *webInit();
 bool checkCredentials(char *user, char *pass);
 int populateDbUsers(char *msg);
 char *convertToString(char *);
 char username[10];
 char password[15];
 char pwbuf[25];
-int sf2, n, count;
+int sf2, n, count, portnum;
 clients h;
 char buffer[BUFFER_MAX];
 bool debugsOn = false;
@@ -91,6 +91,7 @@ SSL_CTX *ssl_context;
 SSL *ssl, *ssl2;
 bool sslon = false;
 bool pw_change = false;
+struct parameters params;
 
 static void start_daemon() {
     pid_t pid;
@@ -128,7 +129,7 @@ static void start_daemon() {
 }
 
 int main(int argc, char *argv[]) {
-    int socket_fd, new_fd, portnum, cli_size, buf_size;
+    int socket_fd, new_fd, cli_size, buf_size;
     struct sockaddr_in server_addr;
     struct sockaddr_in client_addr;
     pthread_t thr;
@@ -139,7 +140,6 @@ int main(int argc, char *argv[]) {
     size_t len = 0;
     ssize_t read;
     bool have_key = false;
-    struct parameters params;
 
     init_parameters(&params, NULL);
     parse_config(&params);
@@ -268,8 +268,8 @@ int main(int argc, char *argv[]) {
         listen(socket_fd, BACKLOG);
 
         // TODO #29 - Create a WebSocket thread
-        // pthread_create(&thr, NULL, webInit, portnum);
-        // pthread_detach(thr);
+        pthread_create(&thr, NULL, webInit, NULL);
+        pthread_detach(thr);
 
         if (signal(SIGINT, (void *)closeServer) == 0)
             if (signal(SIGTSTP, showConnected) == 0)
@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
 
                         // Run checks on the credentials
                         if (checkConnected(h, username) || !checkCredentials(username, password)) {
-                            char upi[] = "!!shutdownUsername / password incorrect or your user is already connected elsewhere.\n";
+                            static char upi[] = "!!shutdownUsername / password incorrect or your user is already connected elsewhere.\n";
                             n = strlen(upi);
                             xor_encrypt(key, upi, n);
 
@@ -329,7 +329,7 @@ int main(int argc, char *argv[]) {
                         }
 
                         if (pw_change) {
-                            char nopwd[] = "No password in database, setting password up.\n";
+                            static char nopwd[] = "No password in database, setting password up.\n";
                             n = strlen(nopwd);
                             xor_encrypt(key, nopwd, n);
 
@@ -726,7 +726,7 @@ void disconnectAllClients() {
             a = a->next;
             sfd = a->port;
             sfd_ssl = a->ssl;
-            char shutdown[] = "!!shutdown";
+            static char shutdown[] = "!!shutdown";
             n = strlen(shutdown);
             xor_encrypt(key, shutdown, n);
 
@@ -807,6 +807,7 @@ bool checkCredentials(char *user, char *pass) {
             if (fp != NULL) {
                 fclose(fp);
             }
+            free(md5string);
             return false;
         }
     }
@@ -902,9 +903,10 @@ int populateDbUsers(char *msg) {
     return 1;
 }
 
-/* TODO #29 - WebSocket support
-void *webInit(void * arguments) {
-    int port = atoi(arguments);
+ // TODO #29 - WebSocket support
+void *webInit() {
+    int port = portnum;
+    port++;
     struct lws_context_creation_info info;
     const char *interface = NULL;
     struct libwebsocket_context *context;
@@ -920,13 +922,15 @@ void *webInit(void * arguments) {
     info.iface = interface;
     info.protocols = protocols;
     info.extensions = libwebsocket_get_internal_extensions();
-    //if (!use_ssl) {
-    info.ssl_cert_filepath = NULL;
-    info.ssl_private_key_filepath = NULL;
-    //} else {
-    //  info.ssl_cert_filepath = LOCAL_RESOURCE_PATH"/libwebsockets-test-server.pem";
-    //  info.ssl_private_key_filepath = LOCAL_RESOURCE_PATH"/libwebsockets-test-server.key.pem";
-    //}
+
+    if (!sslon) {
+        info.ssl_cert_filepath = NULL;
+        info.ssl_private_key_filepath = NULL;
+    } else {
+        info.ssl_cert_filepath = params.server_ssl_cert;
+        info.ssl_private_key_filepath = params.server_ssl_key;
+    }
+
     info.gid = -1;
     info.uid = -1;
     info.options = opts;
@@ -938,13 +942,14 @@ void *webInit(void * arguments) {
         exit(1);
     }
 
-    printf("shhchat_ws server started\n");
+    printDebug("shhchat_ws server started\n");
 
     while (1) {
         libwebsocket_service(context, 50);
     }
 
     libwebsocket_context_destroy(context);
+    printDebug("shhchat_ws server exited\n");
     exit(1);
 }
-*/
+
