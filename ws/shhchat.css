@@ -1,0 +1,19 @@
+.connect-disconnect {
+	display: block;
+	float: right;
+}
+
+.block {
+	width: 500px;
+}
+.status {
+	float: left;
+}
+
+.chat-input {
+	display: block;
+}
+
+#shhchat-box {
+	margin: 5px 0 0 0;
+}

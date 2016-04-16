@@ -5,16 +5,25 @@
 	<title>shhchat web client</title>
 	<meta name="description" content="shhchat web client">
 	<meta name="author" content="Chris Andrews">
+	<link rel="stylesheet" href="shhchat.css">
 	<script src="shhchat.sock.js"></script>
 </head>
 <body>
-	<!-- <h1>shhchat web client example</h1> -->
-	<h2 id="shhchat-status">Disconnected</h2>
-	<button id="shhchat-connect">Connect</button>
-	<button id="shhchat-disconnect">Disconnect</button>
-	<textarea cols="60" rows="8" id="shhchat-box" /></textarea>
-	<input id="shhchat-input" />
-	<button id="shhchat-send">Send</button>
+	<h1>shhchat web client example</h1>
+	<div class="block">
+		<span class="status">Status: <span id="shhchat-status">Disconnected</span></span>
+		<div class="connect-disconnect">
+			<button id="shhchat-connect">Connect</button>
+			<button id="shhchat-disconnect">Disconnect</button>
+		</div>
+	</div>
+	<div class="block">
+		<textarea cols="60" rows="8" id="shhchat-box" /></textarea>
+		<div class="chat-input">
+			<input id="shhchat-input" />
+			<button id="shhchat-send">Send</button>
+		</div>
+	</div>
 	<script>shhchatWebSocket.start();</script>
 </body>
 </html>
