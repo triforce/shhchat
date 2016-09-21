@@ -21,7 +21,9 @@ Next Milestone: 0.1 release
 
 <h3>Setting up SSL</h3>
 
-shhchat supports SSL that requires a certificate and private key for both client and server. Have a look at http://dst.lbl.gov/~boverhof/openssl_certs.html for a simple guide.
+shhchat supports SSL that requires a certificate and private key for both client and server.
+
+There is now a script in the certs directory that will automatically generate the client and server certificates/keys for a basic setup.
 
 <h3>How to use</h3>
 
