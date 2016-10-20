@@ -32,7 +32,7 @@ shhchat supports SSL that requires a certificate and private key for both client
 
 There is now a script in the certs directory that will automatically generate the client and server certificates/keys for a basic setup.
 
-<h4>Bare minimal setup without SSL</h4>
+<h3>Bare minimal setup without SSL</h3>
 
 <pre>git clone https://github.com/triforce/shhchat</pre>
 <pre>cd shhchat</pre>
@@ -53,7 +53,7 @@ Login with one of the users specified in the example 'users' db file.
 
 Once you are connected typing '??' will display a list of available chat commands.
 
-<h4>Full setup with SSL</h4>
+<h3>Full setup with SSL</h3>
 As above however you will need a key/certificate pair for the client and server.
 
 The locations of these certificates can be set via a shhchat.conf file in /etc/shhchat/shhchat.conf. If running shhchat from source you will obviously need to create the shhchat directory.
