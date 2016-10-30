@@ -11,8 +11,8 @@ window.shhchatWebSocket = (function() {
 	var chatBox, chatInput, chatStatus, chatSend, chatConn, chatDis;
 
 	var shhchatHandler = {
-        start: function() {
-    		chatBox = document.getElementById('shhchat-box');
+		start: function() {
+			chatBox = document.getElementById('shhchat-box');
 			chatInput = document.getElementById('shhchat-input');
 			chatStatus = document.getElementById('shhchat-status');
 			chatSend = document.getElementById('shhchat-send');
@@ -61,10 +61,10 @@ window.shhchatWebSocket = (function() {
 				}
 			};
 
-        }
-    };
+		}
+    	};
 
-    return shhchatHandler;
+	return shhchatHandler;
 }());
 
 
