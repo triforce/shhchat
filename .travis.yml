@@ -1,0 +1,2 @@
+language: c
+install: make libwebsockets-dev libssl-dev
