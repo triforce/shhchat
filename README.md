@@ -9,6 +9,8 @@ Current: Beta
 
 Next Milestone: 0.1 release
 
+[![Build Status](https://travis-ci.org/triforce/shhchat.svg?branch=master)](https://travis-ci.org/triforce/shhchat)
+
 <h3>Release Schedule</h3>
 
 0.1
