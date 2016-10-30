@@ -5,3 +5,4 @@ before_install:
 - sudo apt-get install -y libwebsockets-dev libssl-dev
 sudo: required
 dist: trusty
+script: make
