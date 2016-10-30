@@ -1,4 +1,7 @@
 language: c
 before_install:
+- sudo add-apt-repository "deb http://us.archive.ubuntu.com/ubuntu/ trusty-updates universe multiverse"
+- sudo apt-get -qq update
 - sudo apt-get install -y libwebsockets-dev libssl-dev
 sudo: required
+dist: trusty
