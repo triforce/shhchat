@@ -1,2 +1,4 @@
 language: c
-install: make libwebsockets-dev libssl-dev
+before_install:
+- sudo apt-get install -y libwebsockets-dev libssl-dev
+sudo: required
