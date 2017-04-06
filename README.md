@@ -58,19 +58,29 @@ Once you are connected typing '??' will display a list of available chat command
 <h3>Full setup with SSL</h3>
 As above however you will need a key/certificate pair for the client and server.
 
+There is now a script (scripts/create_certs.sh) to automatically generate a server and client key pair.
+
 The locations of these certificates can be set via a shhchat.conf file in /etc/shhchat/shhchat.conf. If running shhchat from source you will obviously need to create the shhchat directory.
 
 The server will <b>always</b> read the certificate locations from the /etc/shhchat directory by default:
-<pre>/etc/shhchat/key - Basic key</pre>
-<pre>/etc/shhchat/shh_key.pem - SSL key</pre>
-<pre>/etc/shhchat/shh_certificate.pem - SSL cert</pre>
+
+Simple key
+<pre>/etc/shhchat/key</pre>
+SSL key
+<pre>/etc/shhchat/shh_key.pem</pre>
+SSL cert
+<pre>/etc/shhchat/shh_certificate.pem</pre>
 
 The client will look for them in the current user's $HOME directory by default.
-<pre>$HOME/.key - Basic key</pre>
-<pre>$HOME/.shh_key - SSL key</pre>
-<pre>$HOME/.shh_certificate - SSL cert</pre>
+
+Simple key
+<pre>$HOME/.key</pre>
+SSL key
+<pre>$HOME/.shh_key</pre>
+SSL cert
+<pre>$HOME/.shh_certificate</pre>
 
 <h3>Contributing</h3>
 I am on the lookout for people to test shhchat so give it a go and if necessary raise issues!
 
-Pull requests are also appreciated.
+Pull requests are welcome.
