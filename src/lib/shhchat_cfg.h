@@ -43,12 +43,12 @@ void init_parameters(struct parameters *params, char *home) {
 
         strncpy(tmp, home, strlen(home));
         strncat(tmp, ssl_key, sizeof(ssl_key));
-        strncpy(params->client_ssl_key, ssl_key, MAXLEN);
+        strncpy(params->client_ssl_key, tmp, MAXLEN);
         memset(&tmp, 0, sizeof(tmp));
 
         strncpy(tmp, home, strlen(home));
         strncat(tmp, ssl_cert, sizeof(ssl_cert));
-        strncpy(params->client_ssl_cert, ssl_cert, MAXLEN);
+        strncpy(params->client_ssl_cert, tmp, MAXLEN);
         memset(&tmp, 0, sizeof(tmp));
     }
     
