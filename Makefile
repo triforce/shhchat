@@ -32,6 +32,6 @@ debug:
 	rm -rf $(BIN)
 	mkdir -p $(BIN)/$(CONF)
 	$(CC) -o $(BIN)/shhchatd $(SRC)/shhchatd/server.c $(CFLAGS) $(WS) -DDEBUG -g
-	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DDEBUG
+	$(CC) -o $(BIN)/shhclient $(SRC)/chatclient/client.c $(CFLAGS) -DDEBUG -g
 	cp $(CONF)/* -t $(BIN)/$(CONF)
 	@echo Finished shhchat debug build
