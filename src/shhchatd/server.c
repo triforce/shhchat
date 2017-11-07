@@ -97,24 +97,29 @@ static void start_daemon() {
     pid_t pid;
     pid = fork();
 
-    if (pid < 0)
+    if (pid < 0) {
         exit(EXIT_FAILURE);
+    }
 
-    if (pid > 0)
+    if (pid > 0) {
         exit(EXIT_SUCCESS);
+    }
 
-    if (setsid() < 0)
+    if (setsid() < 0) {
         exit(EXIT_FAILURE);
+    }
 
     signal(SIGCHLD, SIG_IGN);
     signal(SIGHUP, SIG_IGN);
     pid = fork();
 
-    if (pid < 0)
+    if (pid < 0) {
         exit(EXIT_FAILURE);
+    }
 
-    if (pid > 0)
+    if (pid > 0) {
         exit(EXIT_SUCCESS);
+    }
 
     umask(0);
 
@@ -144,20 +149,22 @@ int main(int argc, char *argv[]) {
     init_parameters(&params, NULL);
     parse_config(&params);
 
-    if (debug == 1)
-	    debugsOn = true;
+    if (debug == 1) {
+        debugsOn = true;
+    }
 
-    if (debugsOn)
-	    printDebug("Debugs on, not starting as a daemon.");
-    else
-	    start_daemon();
+    if (debugsOn) {
+        printDebug("Debugs on, not starting as a daemon.");
+    } else {
+        start_daemon();
+    }
 
     while (1) {
-
-        if (argc == 2)
+        if (argc == 2) {
             portnum = atoi(argv[1]);
-        else
+        } else {
             portnum = default_port;
+        }
 
         printDebug("Reading contents of config file.");
 
@@ -182,8 +189,9 @@ int main(int argc, char *argv[]) {
             buf_size = sizeof(line);
             strncpy(key, line, buf_size);
 
-            if (debugsOn)
+            if (debugsOn) {
                 printf("%s", key);
+            }
 
             have_key = true;
             break;
@@ -195,7 +203,7 @@ int main(int argc, char *argv[]) {
         if (!have_key) {
             printDebug("Failed to read key file.");
             exit(EXIT_FAILURE);
-         }
+        }
 
         if (debugsOn) {
             printf("Testing encryption key on string: '%s'\n", plain);
@@ -224,8 +232,7 @@ int main(int argc, char *argv[]) {
         if (!SSL_CTX_use_certificate_file(ssl_context, params.server_ssl_cert, SSL_FILETYPE_PEM)) {
             fprintf (stderr, "SSL_CTX_use_certificate_file ERROR\n");
             // ERR_print_errors_fp(stderr);
-        }
-        else {
+        } else {
             sslon = true;
         }
 
@@ -243,8 +250,9 @@ int main(int argc, char *argv[]) {
         server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
         server_addr.sin_port = htons(portnum);
 
-        if (debugsOn)
+        if (debugsOn) {
             printf("IP Address: %s\n", inet_ntoa(server_addr.sin_addr));
+        }
 
         socket_fd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -262,8 +270,9 @@ int main(int argc, char *argv[]) {
         if (bind(socket_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr)) == -1) {
             syslog(LOG_INFO, "%s", "Failed to bind.");
             exit(1);
-        } else
+        } else {
             syslog(LOG_INFO, "%s", "Port binded.");
+        }
 
         listen(socket_fd, BACKLOG);
 
@@ -322,10 +331,11 @@ int main(int argc, char *argv[]) {
                             n = strlen(upi);
                             xor_encrypt(key, upi, n);
 
-                            if (sslon)
+                            if (sslon) {
                                 SSL_write(ssl, upi, strlen(upi));
-                            else
+                            } else {
                                 send(new_fd, upi, strlen(upi), 0);
+                            }
                         }
 
                         if (pw_change) {
@@ -333,10 +343,11 @@ int main(int argc, char *argv[]) {
                             n = strlen(nopwd);
                             xor_encrypt(key, nopwd, n);
 
-                            if (sslon)
+                            if (sslon) {
                                 SSL_write(ssl, nopwd, strlen(nopwd));
-                            else
+                            } else {
                                 send(new_fd, nopwd, strlen(nopwd), 0);
+                            }
                         }
 
                         pw_change = false;
@@ -357,10 +368,11 @@ int main(int argc, char *argv[]) {
                                 n = strlen(buffer);
                                 xor_encrypt(key, buffer, n);
 
-                                if (sslon)
+                                if (sslon) {
                                     SSL_write(ssl2, buffer, n);
-                                else
+                                } else {
                                     send(sf2, buffer, n, 0);
+                                }
                             }
                         } while (a->next != NULL);
 
@@ -422,40 +434,25 @@ void *server(void * arguments) {
     n = strlen(keybuf);
     xor_encrypt(key, keybuf, n);
 
-    if (sslon)
+    if (sslon) {
         SSL_write(ts_ssl, keybuf, n);
-    else
+    } else {
         send(ts_fd, keybuf, n, 0);
+    }
 
     free(tmp);
-    // Add colon back in, need to check it doesn't go over allocated length
-    // uname[strlen(uname)] = ':';
-    // uname[strlen(uname)] = ' ';
-    // printf("username after : %s", uname);
-    /*
-    ubuf[BUFFER_MAX]
-    bzero(ubuf,BUFFER_MAX);
-    do {
-        a = a->next;
-        sprintf(ubuf,"%s is online.",a->username);
-     printf("\nSending data to client contents of ubuf pre xor- %s", ubuf);
-    n = strlen(ubuf);
-        xor_encrypt(key, ubuf, n);
-     printf("\nSending data to client contents of ubuf post xor %s", ubuf);
-    fflush(stdout);
-        send(ts_fd,ubuf,n,0);
-    } while(a->next != NULL);
-    */
 
     while (1) {
         bzero(buffer, BUFFER_MAX);
-        if (sslon)
+        if (sslon) {
             y = SSL_read(ts_ssl, buffer, sizeof(buffer));
-        else
+        } else {
             y = recv(ts_fd, buffer, sizeof(buffer), 0);
+        }
 
-        if (y == 0)
+        if (y == 0) {
             goto cli_dis;
+        }
 
         n = y;
         xor_encrypt(key, buffer, n);
@@ -492,10 +489,11 @@ void *server(void * arguments) {
             n = strlen(buffer);
             xor_encrypt(key, buffer, n);
 
-            if (sslon)
+            if (sslon) {
                 SSL_write(ts_ssl, buffer, n);
-            else
+            } else {
                 send(ts_fd, buffer, n, 0);
+            }
             
             bzero(msg, BUFFER_MAX);
             continue;
@@ -510,10 +508,11 @@ void *server(void * arguments) {
                 n = strlen(buffer);
                 xor_encrypt(key, buffer, n);
 
-                if (sslon)
+                if (sslon) {
                     SSL_write(ts_ssl, buffer, n);
-                else
+                } else {
                     send(ts_fd, buffer, n, 0);
+                }
             }
 
             bzero(msg, BUFFER_MAX);
@@ -544,20 +543,21 @@ cli_dis:
                     n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
 
-                    if (sslon)
+                    if (sslon) {
                         SSL_write(sfd_ssl, buffer, n);
-                    else
+                    } else {
                         send(sfd, buffer, n, 0);
-
-
-		        }
+                    }
+		}
             } while (a->next != NULL);
 
-            if (debugsOn)
+            if (debugsOn) {
                 displayConnected(h);
+            }
 
-            if (sslon)
+            if (sslon) {
                 SSL_free(ts_ssl);
+            }
             
             close(ts_fd);
 
@@ -565,8 +565,9 @@ cli_dis:
             break;
         }
 
-        if (debugsOn)
+        if (debugsOn) {
             printf("\nData in buffer after disconnect check: %s %s\n", uname, buffer);
+        }
 
         // Add blank space after username so it reads on other clients as 'user1: ' + buffer
         uname[strlen(uname)] = ' ';
@@ -590,15 +591,17 @@ cli_dis:
                 n = strlen(msg);
                 xor_encrypt(key, msg, n);
 
-                if (sslon)
+                if (sslon) {
                     SSL_write(sfd_ssl, msg, n);
-                else
+                } else {
                     send(sfd, msg, n, 0);
-	        }
+                }
+	    }
         } while (a->next != NULL);
 
-        if (debugsOn)
+        if (debugsOn) {
             displayConnected(h);
+        }
 
         bzero(msg, BUFFER_MAX);
     }
@@ -606,18 +609,21 @@ cli_dis:
 }
 
 void printDebug(char *string) {
-    if (debugsOn)
+    if (debugsOn) {
         printf("%s\n", string);
+    }
 }
 
 clients ClientList(clients h) {
-    if (h != NULL)
+    if (h != NULL) {
         removeAllClients(h);
+    }
 
     h = malloc(sizeof(struct client));
 
-    if (h == NULL)
+    if (h == NULL) {
         syslog(LOG_INFO, "%s", "Out of memory.");
+    }
 
     h->next = NULL;
     return h;
@@ -642,8 +648,9 @@ void addClient(int port, SSL *ssl_fd, char *username, char *password, clients h,
     int buf_size;
     srand(rangen);
 
-    if (tmpcell == NULL)
+    if (tmpcell == NULL) {
         syslog(LOG_INFO, "%s", "Max connections reached.");
+    }
 
     tmpcell->su = 0;
     tmpcell->port = port;
@@ -660,9 +667,9 @@ void addClient(int port, SSL *ssl_fd, char *username, char *password, clients h,
 void displayConnected(const clients h) {
     addr a = h;
 
-    if (h->next == NULL)
+    if (h->next == NULL) {
         printDebug("No clients currently connected.");
-    else {
+    } else {
         do {
             a = a->next;
             printf("%s \t", a->username);
@@ -675,14 +682,15 @@ void displayConnected(const clients h) {
 bool checkConnected(const clients h, char *username) {
     addr a = h;
 
-    if (h->next == NULL)
+    if (h->next == NULL) {
         return false;
-    else {
+    } else {
         do {
             a = a->next;
 
-            if (strcmp(username, a->username) == 0)
+            if (strcmp(username, a->username) == 0) {
                 return true;
+            }
 
         } while (a->next != NULL);
 
@@ -730,10 +738,11 @@ void disconnectAllClients() {
             n = strlen(shutdown);
             xor_encrypt(key, shutdown, n);
 
-            if (sslon)
+            if (sslon) {
                 SSL_write(sfd_ssl, shutdown, 10);
-            else
+            } else {
                 send(sfd, shutdown, 10, 0);
+            }
 
         } while (a->next != NULL);
 
@@ -850,6 +859,7 @@ bool checkCredentials(char *user, char *pass) {
             fseek(fp_o, 0, SEEK_END);
             // Might as well reuse new_line
             bzero(new_line, 40);
+            // Create a new string: <username>:<password>\n0x00
             strncpy(new_line, user, strlen(user));
             new_line[strlen(new_line)] = ':';
             strncat(new_line, md5string, strlen(md5string));

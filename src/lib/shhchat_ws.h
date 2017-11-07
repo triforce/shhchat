@@ -15,7 +15,7 @@ static int callback_http(
     enum libwebsocket_callback_reasons reason,
     void *user,
     void *in, size_t len) {
-        return 0;
+    return 0;
 }
 
 static int handle_ws_requests(
@@ -34,8 +34,7 @@ static int handle_ws_requests(
                     buf[LWS_SEND_BUFFER_PRE_PADDING + (len - 1) - i ] = ((char *) in)[i];
                 }
 
-                printf("Received data: %s, replying: %.*s\n", (char *) in, (int) len,
-                     buf + LWS_SEND_BUFFER_PRE_PADDING);
+                printf("Received data: %s, replying: %.*s\n", (char *) in, (int) len, buf + LWS_SEND_BUFFER_PRE_PADDING);
 
                 libwebsocket_write(wsi, &buf[LWS_SEND_BUFFER_PRE_PADDING], len, LWS_WRITE_TEXT);
 

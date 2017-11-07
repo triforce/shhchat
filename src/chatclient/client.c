@@ -164,8 +164,9 @@ int main(int argc, char *argv[]) {
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
-    if (sockfd == -1)
+    if (sockfd == -1) {
         printf ("%sFailed to open socket - Is the port already in use?\n%s", RED, RESET_COLOR);
+    }
 
     bzero((char *) &serv_addr, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
@@ -387,18 +388,21 @@ void *chat_write(int sockfd) {
             y = strlen(buffer);
             xor_encrypt(key, buffer, y);
 
-            if (sslon)
+            if (sslon) {
                 n = SSL_write(ssl, buffer, y);
-            else
+            } else {
                 n = send(sockfd, buffer, y, 0);
+            }
 
-        } else
+        } else {
             __fpurge(stdin);
+        }
 
         bzero(buffer, BUFFER_MAX);
 
-        if (clear)
+        if (clear) {
             addYou();
+        }
     }
     return 0;
 }
@@ -413,13 +417,15 @@ void *zzz() {
 }
 
 void printDebug(char *string) {
-    if (debugsOn)
+    if (debugsOn) {
         printf("%s", string);
+    }
 }
 
 void printLog(char *string) {
-    if (logsOn)
+    if (logsOn) {
         writeLog(fp_l, string);
+    }
 }
 
 void clearLogs() {
@@ -435,16 +441,18 @@ void initLog(char logname[]) {
     strncat(log_name_new, logname, strlen(logname));
     strncat(log_name_new, "_", 1);
 
-    if (createPaths(log_name_default, log_name_new) == 0)
+    if (createPaths(log_name_default, log_name_new) == 0) {
         exitLogError();
+    }
 
     result = rename(log_name_default, log_name_new);
 
     // Open log file
     fp_l = fopen(log_name_default, "a");
 
-    if (fp_l == NULL && result != 0)
+    if (fp_l == NULL && result != 0) {
         exitLogError();
+    }
 }
 
 int createPaths(char log_name_default[], char log_name_new[]) {
@@ -453,8 +461,9 @@ int createPaths(char log_name_default[], char log_name_new[]) {
     char cwd[1024];
     char tmp_cwd[1024];
 
-    if (getcwd(cwd, sizeof(cwd)) == NULL)
+    if (getcwd(cwd, sizeof(cwd)) == NULL) {
         return 0;
+    }
 
     strncpy(tmp_cwd, cwd, strlen(cwd));
     sprintf(time_str, "%d", time_t);
