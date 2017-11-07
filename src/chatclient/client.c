@@ -117,8 +117,8 @@ int main(int argc, char *argv[]) {
         fp = fopen("conf/key", "r");
 
         if (fp == NULL) {
-                printf("%sKey file not found - This is the minimum encryption you can have...Exiting\n%s", RED, RESET_COLOR);
-                exit(EXIT_FAILURE);
+            printf("%sKey file not found - This is the minimum encryption you can have...Exiting\n%s", RED, RESET_COLOR);
+            exit(EXIT_FAILURE);
         }
         else {
             printf("%sKey found in conf directory.\n%s", GREEN, RESET_COLOR);
@@ -221,7 +221,6 @@ int main(int argc, char *argv[]) {
         ssl = SSL_new(ssl_context);
         SSL_set_fd(ssl, sockfd);
         int ssl_done = SSL_connect(ssl);
-        // printf("%i",ssl_done);
 
         if (ssl_done < 0) {
             fprintf (stderr, "SSL handshake failed.\n");
@@ -309,8 +308,8 @@ void *chat_write(int sockfd) {
     bool clear = true;
 
     while (1) {
-	    // Continuously read from stdin
-	    clear = true;
+        // Continuously read from stdin
+        clear = true;
         bzero(buffer, BUFFER_MAX);
 
         __fpurge(stdin);

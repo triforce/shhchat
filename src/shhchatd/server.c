@@ -540,8 +540,8 @@ cli_dis:
                 }
 
                 if ((!sslon && sfd != ts_fd) || (sslon && sfd_ssl != ts_ssl)) {
-	 	            // Encrypt message
-		            n = strlen(buffer);
+                    // Encrypt message
+                    n = strlen(buffer);
                     xor_encrypt(key, buffer, n);
 
                     if (sslon)
@@ -571,7 +571,7 @@ cli_dis:
         // Add blank space after username so it reads on other clients as 'user1: ' + buffer
         uname[strlen(uname)] = ' ';
         uname[strlen(uname) + 1] = '\0';
-	    strncpy(msg, uname, sizeof(uname));
+        strncpy(msg, uname, sizeof(uname));
         x = strlen(msg);
         strp = msg;
         strp += x;
