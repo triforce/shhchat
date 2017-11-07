@@ -781,12 +781,12 @@ bool checkCredentials(char *user, char *pass) {
 
     user[strlen(user) - 1] = '\0';
 
-    fp = fopen("conf/users", "r+");
-    fp_o = fopen("conf/pwds", "w+");
+    fp = fopen("conf/users", "r");
+    fp_o = fopen("conf/pwds", "a");
 
     if (fp == NULL) {
         printDebug("Failed to find user file in local directory, checking in /etc/shhchat...");
-        fp = fopen("/etc/shhchat/users", "a+");
+        fp = fopen("/etc/shhchat/users", "r");
 
         if (fp == NULL) {
             printDebug("Failed to find user file...Exiting");
@@ -800,7 +800,7 @@ bool checkCredentials(char *user, char *pass) {
     }
 
     if (fp_o == NULL) {
-        fp_o = fopen("/etc/shhchat/pwds", "w+");
+        fp_o = fopen("/etc/shhchat/pwds", "a");
 
         if (fp_o == NULL) {
             printDebug("Failed to find pwd file...Exiting");
@@ -814,26 +814,28 @@ bool checkCredentials(char *user, char *pass) {
 
     // Read contents of user file
     while ((read = getline(&line, &len, fp)) != -1) {
-        // line[strlen(line) - 1] = '\0';
-        // buf_size = sizeof(temp_user);
         strncpy(new_line, line, strlen(line));
         char *user_result;
         char *pass_result;
         user_result = strtok(line, ":");
+        pass_result = strtok(NULL, ":");
 
         if (strcmp(user_result, user) == 0) {
-            pass_result = strtok(NULL, ":");
             found_user = true;
             
             if (strlen(pass_result) > 1) {
+                // Found a username but password is empty (newline char) or has the actual password
                 if (strncmp(pass_result, md5string, 32) == 0) {
+                    // Password matches, update pwds file
                     fseek(fp_o, 0, SEEK_END);
                     fputs(new_line, fp_o);
                 } else {
+                    // Password doesn't match but user exists
                     found_user = false;
                 }
             }
             else {
+                // Password empty, make sure we add it in to the pwds file
                 pass_updated = true;
             }
         } else {
@@ -844,12 +846,16 @@ bool checkCredentials(char *user, char *pass) {
 
     if (found_user) {
         if (pass_updated) {
+            // Add user to pwd file
             fseek(fp_o, 0, SEEK_END);
-            user[strlen(user)] = ':';
-            strncat(user, md5string, strlen(md5string));
-            user[strlen(user)] = '\n';
-            user[strlen(user) + 1] = '\0';
-            fputs(user, fp_o);
+            // Might as well reuse new_line
+            bzero(new_line, 40);
+            strncpy(new_line, user, strlen(user));
+            new_line[strlen(new_line)] = ':';
+            strncat(new_line, md5string, strlen(md5string));
+            new_line[strlen(new_line)] = '\n';
+            new_line[strlen(new_line) + 1] = '\0';
+            fputs(new_line, fp_o);
             pw_change = true;
         }
         free(md5string);
@@ -862,6 +868,7 @@ bool checkCredentials(char *user, char *pass) {
         } else {
             rename("conf/pwds", "conf/users");
         }
+
         return true;
     }
 

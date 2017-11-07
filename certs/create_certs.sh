@@ -1,4 +1,4 @@
-!#/bin/bash
+#!/bin/bash
 serial="00"
 
 # Create a CA
@@ -14,7 +14,7 @@ openssl x509 -req -in server.req -CA ../ca.pem -CAkey ../privkey.pem -CAserial s
 cd ..
 mkdir client
 cd client
-openssl genrsa -des3 -out client.key 1024
+openssl genrsa -out client.key 1024 
 openssl req -key client.key -new -out client.req
 echo "$serial" > serial.srl
 openssl x509 -req -in client.req -CA ../ca.pem -CAkey ../privkey.pem -CAserial serial.srl -out client.pem
