@@ -11,11 +11,5 @@ jobs:
     - name: Install Dependencies
       run: sudo apt-get install -y libwebsockets-dev libssl-dev
     - uses: actions/checkout@v1
-    - name: configure
-      run: ./configure
     - name: make
       run: make
-    - name: make check
-      run: make check
-    - name: make distcheck
-      run: make distcheck
